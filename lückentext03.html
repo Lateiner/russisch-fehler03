@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Russisch-Quiz: Dropdown-Lückentext</title>
+    <style>
+        :root {
+            --primary-color: #6c5ce7;
+            --success-color: #00b894;
+            --error-color: #d63031;
+            --bg-color: #f9f9fb;
+            --card-bg: #ffffff;
+            --text-color: #2d3436;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            margin-top: 20px;
+        }
+
+        h1 { font-size: 1.5rem; text-align: center; color: var(--primary-color); }
+
+        .progress-container {
+            width: 100%;
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--primary-color);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .question-box {
+            font-size: 1.3rem;
+            line-height: 2;
+            text-align: center;
+            margin: 40px 0;
+        }
+
+        /* Dropdown Styling */
+        select {
+            font-size: 1.1rem;
+            padding: 5px 10px;
+            border: 2px solid var(--primary-color);
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            outline: none;
+            color: var(--text-color);
+            transition: all 0.3s;
+            margin: 0 5px;
+        }
+
+        select.correct {
+            border-color: var(--success-color);
+            background-color: #e6fffb;
+            color: var(--success-color);
+        }
+
+        select.wrong {
+            border-color: var(--error-color);
+            background-color: #fff1f0;
+            color: var(--error-color);
+        }
+
+        .btn-next {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: opacity 0.3s;
+        }
+
+        .btn-next:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        #result-screen {
+            display: none;
+            text-align: center;
+        }
+
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 60px;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 20px auto;
+        }
+
+        @media (max-width: 480px) {
+            .question-box { font-size: 1.1rem; }
+            .container { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container" id="quiz-ui">
+    <h1>Wähle das richtige Verb</h1>
+    
+    <div class="progress-container">
+        <div class="progress-bar" id="progress-bar"></div>
+    </div>
+
+    <div class="question-box" id="question-box">
+        <!-- Satz wird hier generiert -->
+    </div>
+
+    <button id="next-btn" class="btn-next" onclick="nextQuestion()" disabled>Nächster Satz</button>
+</div>
+
+<div class="container" id="result-screen">
+    <h1>Ergebnis</h1>
+    <div class="score-circle" id="final-score">0</div>
+    <p id="feedback-text"></p>
+    <button class="btn-next" onclick="location.reload()">Nochmal starten</button>
+</div>
+
+<script>
+    const questions = [
+        { start: "Я ", end: " русский язык.", options: ["учу", "учусь"], correct: "учу" },
+        { start: "Я ", end: " в университете.", options: ["учу", "учусь"], correct: "учусь" },
+        { start: "Я ", end: " русскому языку.", options: ["учу", "учусь"], correct: "учусь" },
+        { start: "Мы с Машей ", end: " уже давно.", options: ["дружим", "дружимся"], correct: "дружим" },
+        { start: "Мы с ней ", end: " в школе.", options: ["подружили", "подружились"], correct: "подружились" },
+        { start: "Мы ", end: " встретиться в 6 часов.", options: ["согласились", "договорились"], correct: "договорились" },
+        { start: "Я ", end: " с твоим мнением.", options: ["согласен", "договорился"], correct: "согласен" },
+        { start: "Мы завтра ", end: " в кафе.", options: ["встретим", "встретимся"], correct: "встретимся" },
+        { start: "Я случайно ", end: " его в метро.", options: ["встретил", "встретился"], correct: "встретил" },
+        { start: "Мы ", end: " папу в аэропорту.", options: ["встречаем", "встречаемся"], correct: "встречаем" },
+        { start: "Они ", end: " уже два месяца.", options: ["встречают", "встречаются"], correct: "встречаются" },
+        { start: "Я хочу ", end: " за ошибку.", options: ["извинить", "извиниться"], correct: "извиниться" },
+        { start: "Надеюсь, она меня ", end: " .", options: ["извинит", "извинится"], correct: "извинит" },
+        { start: "Пожалуйста, ", end: " меня.", options: ["извини", "извинись"], correct: "извини" },
+        { start: "Мы утром ", end: " , и сейчас не разговариваем.", options: ["поссорили", "поссорились"], correct: "поссорились" },
+        { start: "Ты хорошо ", end: " ?", options: ["учишь", "учишься"], correct: "учишься" },
+        { start: "Они решили ", end: " на выходных.", options: ["встретить", "встретиться"], correct: "встретиться" },
+        { start: "Кто ", end: " тебя русскому языку?", options: ["учит", "учится"], correct: "учит" },
+        { start: "Я хочу ", end: " перед другом.", options: ["извинить", "извиниться"], correct: "извиниться" },
+        { start: "Мы ", end: " о цене.", options: ["согласились", "договорились"], correct: "договорились" }
+    ];
+
+    let currentIdx = 0;
+    let score = 0;
+
+    function renderQuestion() {
+        const q = questions[currentIdx];
+        const box = document.getElementById('question-box');
+        
+        box.innerHTML = `${q.start} 
+            <select id="verb-select" onchange="checkAnswer(this)">
+                <option value="" disabled selected>... wählen ...</option>
+                ${q.options.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+            </select> 
+            ${q.end}`;
+        
+        document.getElementById('next-btn').disabled = true;
+        updateProgressBar();
+    }
+
+    function checkAnswer(selectElement) {
+        const selectedValue = selectElement.value;
+        const correctAnswer = questions[currentIdx].correct;
+        const nextBtn = document.getElementById('next-btn');
+
+        if (selectedValue === correctAnswer) {
+            selectElement.className = "correct";
+            score++;
+        } else {
+            selectElement.className = "wrong";
+        }
+
+        // Deaktiviere das Dropdown nach der Wahl
+        selectElement.disabled = true;
+        nextBtn.disabled = false;
+    }
+
+    function updateProgressBar() {
+        const progress = ((currentIdx) / questions.length) * 100;
+        document.getElementById('progress-bar').style.width = `${progress}%`;
+    }
+
+    function nextQuestion() {
+        currentIdx++;
+        if (currentIdx < questions.length) {
+            renderQuestion();
+        } else {
+            showResults();
+        }
+    }
+
+    function showResults() {
+        document.getElementById('quiz-ui').style.display = 'none';
+        const resultScreen = document.getElementById('result-screen');
+        resultScreen.style.display = 'block';
+        
+        document.getElementById('final-score').innerText = `${score}`;
+        
+        let feedback = "";
+        if (score === 20) feedback = "Ausgezeichnet! Du bist ein Profi für russische Verben.";
+        else if (score > 15) feedback = "Sehr gut! Du hast fast alles richtig gemacht.";
+        else if (score > 10) feedback = "Gut gemacht! Ein paar Details fehlen noch.";
+        else feedback = "Schau dir das Video von Ira am besten noch einmal an.";
+        
+        document.getElementById('feedback-text').innerText = feedback;
+    }
+
+    // Quiz starten
+    renderQuestion();
+</script>
+
+</body>
+</html>
