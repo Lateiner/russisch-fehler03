@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Russisch-Master: Die -СЯ Challenge</title>
+    <style>
+        :root {
+            --with-sja: #4CAF50;
+            --without-sja: #2196F3;
+            --bg-color: #f0f4f8;
+            --card-bg: #ffffff;
+            --text-main: #2c3e50;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .header {
+            text-align: center;
+            padding: 10px;
+            z-index: 5;
+        }
+
+        .game-container {
+            position: relative;
+            width: 90vw;
+            max-width: 400px;
+            height: 380px;
+        }
+
+        .card {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: var(--card-bg);
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+            touch-action: none;
+            padding: 30px;
+            box-sizing: border-box;
+            border: 1px solid #e0e0e0;
+        }
+
+        .sentence {
+            font-size: 1.6rem;
+            font-weight: bold;
+            color: var(--text-main);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .hint {
+            font-size: 0.95rem;
+            color: #636e72;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        .controls {
+            margin-top: 30px;
+            display: flex;
+            gap: 15px;
+            width: 90vw;
+            max-width: 400px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+        }
+
+        .btn-left { background-color: var(--with-sja); }
+        .btn-right { background-color: var(--without-sja); }
+        button:active { transform: translateY(2px); box-shadow: none; }
+
+        .progress {
+            margin-top: 20px;
+            font-weight: bold;
+            color: #7f8c8d;
+        }
+
+        /* Ergebnismeldung */
+        #result-screen {
+            display: none;
+            text-align: center;
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            max-width: 80%;
+        }
+
+        .feedback-pop {
+            position: fixed;
+            top: 15%;
+            font-size: 4rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        @media (max-height: 650px) {
+            .game-container { height: 300px; }
+            .sentence { font-size: 1.3rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-ui">
+    <div class="header">
+        <h3>Braucht das Verb -СЯ?</h3>
+    </div>
+
+    <div id="feedback" class="feedback-pop"></div>
+
+    <div class="game-container">
+        <div class="card" id="active-card">
+            <div class="sentence" id="sentence-text">Lade...</div>
+            <div class="hint" id="hint-text">Kontext</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn-left" onclick="makeChoice(true)">← JA (-СЯ)</button>
+        <button class="btn-right" onclick="makeChoice(false)">NEIN (OHNE)</button>
+    </div>
+
+    <div class="progress">
+        Satz: <span id="current-count">1</span> / 20
+    </div>
+</div>
+
+<div id="result-screen">
+    <h2>Fertig!</h2>
+    <p style="font-size: 1.5rem">Dein Ergebnis: <span id="final-score">0</span> von 20</p>
+    <p id="evaluation-text"></p>
+    <button style="background: #6c5ce7; max-width: 200px;" onclick="location.reload()">Nochmal spielen</button>
+</div>
+
+<script>
+    const allQuestions = [
+        { s: "Я ... русский язык.", h: "Ich lerne (Was? + Akkusativ)", res: false },
+        { s: "Я ... в университете.", h: "Ich lerne/studiere (Wo?)", res: true },
+        { s: "Я ... математике.", h: "Ich lerne (Was? + Dativ)", res: true },
+        { s: "Я ... у Ирины.", h: "Ich lerne bei (Person)", res: true },
+        { s: "Мы с Машей ... давно.", h: "Wir sind befreundet (Zustand)", res: false },
+        { s: "Я ... mit Mascha im Park.", h: "Ich habe mich angefreundet (Beginn)", res: true },
+        { s: "Мы ... завтра в 6.", h: "Wir treffen uns (Geplant/Verabredet)", res: true },
+        { s: "Я случайно ... его в метро.", h: "Ich traf ihn (Ungeplant/Akkusativ)", res: false },
+        { s: "Мама ... меня в аэропорту.", h: "Mama holt mich ab (Abholen/Akkusativ)", res: false },
+        { s: "В книге можно ... эту фразу.", h: "Man kann sie finden (Entdecken)", res: false },
+        { s: "Маша и Вася ... 2 месяца.", h: "Sie gehen miteinander aus (Beziehung)", res: true },
+        { s: "Я хочу ... перед ней.", h: "Ich möchte mich entschuldigen", res: true },
+        { s: "Она меня ... за это.", h: "Sie verzeiht mir (Akkusativ)", res: false },
+        { s: "Мы ... о встрече.", h: "Wir haben uns geeinigt/abgesprochen", res: true },
+        { s: "Я ... с твоим мнением.", h: "Ich stimme dir zu (Meinung)", res: true },
+        { s: "Они часто ... из-за денег.", h: "Sie streiten sich (Privat)", res: true },
+        { s: "Пожалуйста, ... меня.", h: "Bitte verzeih mir (Imperativ/Akkusativ)", res: false },
+        { s: "Мы ... хорошо учиться.", h: "Wir haben vereinbart (Abmachung)", res: true },
+        { s: "Ты ... его вчера?", h: "Hast du ihn getroffen? (Zufällig)", res: false },
+        { s: "Где ты ...?", h: "Wo lernst/studierst du?", res: true },
+        { s: "Мы ... у Ирины.", h: "Wir lernen bei Irina.", res: true },
+        { s: "Он ... её на вокзале.", h: "Er holt sie ab.", res: false }
+    ];
+
+    let questions = [];
+    let currentIdx = 0;
+    let score = 0;
+    const MAX_QUESTIONS = 20;
+
+    const card = document.getElementById('active-card');
+    const sentenceDisp = document.getElementById('sentence-text');
+    const hintDisp = document.getElementById('hint-text');
+    const currentCountDisp = document.getElementById('current-count');
+    const feedback = document.getElementById('feedback');
+
+    let startX = 0;
+    let isDragging = false;
+
+    function init() {
+        questions = [...allQuestions].sort(() => Math.random() - 0.5).slice(0, MAX_QUESTIONS);
+        updateCard();
+    }
+
+    function updateCard() {
+        if (currentIdx >= MAX_QUESTIONS) {
+            showResults();
+            return;
+        }
+        sentenceDisp.innerText = questions[currentIdx].s;
+        hintDisp.innerText = questions[currentIdx].h;
+        currentCountDisp.innerText = currentIdx + 1;
+        card.style.transition = "none";
+        card.style.transform = "translateX(0) rotate(0)";
+        card.style.opacity = "1";
+    }
+
+    // Touch/Mouse Logik
+    card.addEventListener('mousedown', (e) => { startX = e.clientX; isDragging = true; card.style.transition = "none"; });
+    card.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; isDragging = true; card.style.transition = "none"; });
+
+    window.addEventListener('mousemove', (e) => { if (isDragging) moveCard(e.clientX - startX); });
+    window.addEventListener('touchmove', (e) => { if (isDragging) moveCard(e.touches[0].clientX - startX); });
+
+    window.addEventListener('mouseup', endDrag);
+    window.addEventListener('touchend', endDrag);
+
+    function moveCard(x) {
+        card.style.transform = `translateX(${x}px) rotate(${x/15}deg)`;
+    }
+
+    function endDrag(e) {
+        if (!isDragging) return;
+        isDragging = false;
+        const endX = (e.type === 'mouseup') ? e.clientX : e.changedTouches[0].clientX;
+        const diff = endX - startX;
+
+        if (diff < -80) makeChoice(true);
+        else if (diff > 80) makeChoice(false);
+        else {
+            card.style.transition = "transform 0.3s ease";
+            card.style.transform = "translateX(0) rotate(0)";
+        }
+    }
+
+    function makeChoice(choiceWithSja) {
+        const correct = questions[currentIdx].res;
+        
+        if (choiceWithSja === correct) {
+            score++;
+            showFeedback("✔", "#4CAF50");
+        } else {
+            showFeedback("✘", "#f44336");
+        }
+
+        card.style.transition = "transform 0.5s ease, opacity 0.5s";
+        const flyX = choiceWithSja ? -1000 : 1000;
+        card.style.transform = `translateX(${flyX}px) rotate(${flyX/10}deg)`;
+        card.style.opacity = "0";
+
+        currentIdx++;
+        setTimeout(updateCard, 400);
+    }
+
+    function showFeedback(text, color) {
+        feedback.innerText = text;
+        feedback.style.color = color;
+        feedback.style.opacity = "1";
+        setTimeout(() => feedback.style.opacity = "0", 500);
+    }
+
+    function showResults() {
+        document.getElementById('game-ui').style.display = 'none';
+        const screen = document.getElementById('result-screen');
+        screen.style.display = 'block';
+        document.getElementById('final-score').innerText = score;
+        
+        let eval = "";
+        if(score === 20) eval = "Perfekt! Ira wäre stolz auf dich!";
+        else if(score > 15) eval = "Sehr gut! Du hast die Regeln verstanden.";
+        else if(score > 10) eval = "Nicht schlecht, aber schau dir das Video nochmal an.";
+        else eval = "Übung macht den Meister. Probier es nochmal!";
+        document.getElementById('evaluation-text').innerText = eval;
+    }
+
+    init();
+</script>
+
+</body>
+</html>
