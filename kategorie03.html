@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Russisch-Lernspiel: Begegnungen</title>
+    <style>
+        :root {
+            --geplant: #6c5ce7;
+            --ungeplant: #e67e22;
+            --bg: #f0f2f5;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden; /* Verhindert Scrollen während des Spiels */
+            user-select: none;
+        }
+
+        .header {
+            text-align: center;
+            padding: 15px;
+            background: white;
+            width: 100%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .game-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+            box-sizing: border-box;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        /* Die Zielzonen */
+        .zones-container {
+            display: flex;
+            gap: 15px;
+            width: 100%;
+        }
+
+        .zone {
+            flex: 1;
+            height: 150px;
+            border: 3px dashed #ccc;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: white;
+            transition: all 0.2s;
+            pointer-events: none; /* Mouse-Events gehen durch zur Karte */
+        }
+
+        .zone.hover {
+            transform: scale(1.05);
+            border-style: solid;
+            background: #fdfdfd;
+        }
+
+        .zone-planned.hover { border-color: var(--geplant); color: var(--geplant); }
+        .zone-unplanned.hover { border-color: var(--ungeplant); color: var(--ungeplant); }
+
+        /* Die Karte */
+        .card-slot {
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .card {
+            width: 250px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: grab;
+            position: absolute;
+            z-index: 100;
+            touch-action: none; /* Wichtig für Mobile */
+        }
+
+        .card:active { cursor: grabbing; }
+
+        .progress {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #666;
+        }
+
+        /* Mobile Layout */
+        @media (max-width: 500px) {
+            .zones-container { flex-direction: column; }
+            .zone { height: 100px; }
+            .card { width: 80%; font-size: 1rem; }
+        }
+
+        #result-screen {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: white;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h3 style="margin:0">Geplant oder Ungeplant?</h3>
+    <small>Zieh den Satz in die richtige Box</small>
+</div>
+
+<div class="game-container" id="game-ui">
+    <div class="zones-container">
+        <div id="zone-planned" class="zone zone-planned">
+            <strong style="color:var(--geplant)">GEPLANT</strong>
+            <small>(Termin / Beziehung)</small>
+        </div>
+        <div id="zone-unplanned" class="zone zone-unplanned">
+            <strong style="color:var(--ungeplant)">UNGEPLANT</strong>
+            <small>(Zufall / Abholen)</small>
+        </div>
+    </div>
+
+    <div class="card-slot">
+        <div id="main-card" class="card">Lade...</div>
+    </div>
+
+    <div class="progress">Satz <span id="current">1</span> / 12</div>
+</div>
+
+<div id="result-screen">
+    <h1>Fertig!</h1>
+    <p id="final-text"></p>
+    <button onclick="location.reload()" style="padding:10px 20px; cursor:pointer">Nochmal</button>
+</div>
+
+<script>
+    const data = [
+        { t: "Я встретил друга в метро.", type: "unplanned" },
+        { t: "Мы встретились в 6 часов.", type: "planned" },
+        { t: "Я встретила его случайно.", type: "unplanned" },
+        { t: "Мы встретились обсудить проект.", type: "planned" },
+        { t: "Маша и Вася встречаются.", type: "planned" },
+        { t: "Мы встречаем маму в аэропорту.", type: "unplanned" },
+        { t: "Где можно встретить таких людей?", type: "unplanned" },
+        { t: "Они встретились в кафе.", type: "planned" },
+        { t: "Вчера я встретил коллеgu.", type: "unplanned" },
+        { t: "Мы договорились встретиться.", type: "planned" },
+        { t: "Я хочу встретить свою любовь.", type: "unplanned" },
+        { t: "Завтра wir встретимся.", type: "planned" }
+    ];
+
+    let current = 0;
+    let score = 0;
+    let isDragging = false;
+    let startX, startY;
+
+    const card = document.getElementById('main-card');
+    const zoneP = document.getElementById('zone-planned');
+    const zoneU = document.getElementById('zone-unplanned');
+
+    function init() {
+        data.sort(() => Math.random() - 0.5);
+        showNext();
+    }
+
+    function showNext() {
+        if (current >= 12) {
+            finish();
+            return;
+        }
+        card.innerText = data[current].t;
+        card.style.transition = 'none';
+        card.style.left = '50%';
+        card.style.top = '50%';
+        card.style.transform = 'translate(-50%, -50%)';
+        document.getElementById('current').innerText = current + 1;
+    }
+
+    // Dragging Logik
+    const startEvent = (e) => {
+        isDragging = true;
+        const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+        
+        const rect = card.getBoundingClientRect();
+        startX = clientX - rect.left;
+        startY = clientY - rect.top;
+        card.style.transition = 'none';
+    };
+
+    const moveEvent = (e) => {
+        if (!isDragging) return;
+        if (e.type === 'touchmove') e.preventDefault();
+
+        const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+
+        // Neue Position berechnen
+        let x = clientX - startX;
+        let y = clientY - startY;
+
+        card.style.left = x + 'px';
+        card.style.top = y + 'px';
+        card.style.transform = 'none';
+
+        checkOverlap(clientX, clientY);
+    };
+
+    const endEvent = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+
+        const clientX = e.type.includes('touch') ? e.changedTouches[0].clientX : e.clientX;
+        const clientY = e.type.includes('touch') ? e.changedTouches[0].clientY : e.clientY;
+
+        const result = checkOverlap(clientX, clientY);
+        
+        if (result) {
+            submit(result);
+        } else {
+            // Zurückspringen
+            card.style.transition = 'all 0.3s ease';
+            card.style.left = '50%';
+            card.style.top = '50%';
+            card.style.transform = 'translate(-50%, -50%)';
+        }
+        
+        zoneP.classList.remove('hover');
+        zoneU.classList.remove('hover');
+    };
+
+    function checkOverlap(cx, cy) {
+        const rP = zoneP.getBoundingClientRect();
+        const rU = zoneU.getBoundingClientRect();
+
+        zoneP.classList.remove('hover');
+        zoneU.classList.remove('hover');
+
+        if (cx > rP.left && cx < rP.right && cy > rP.top && cy < rP.bottom) {
+            zoneP.classList.add('hover');
+            return 'planned';
+        }
+        if (cx > rU.left && cx < rU.right && cy > rU.top && cy < rU.bottom) {
+            zoneU.classList.add('hover');
+            return 'unplanned';
+        }
+        return null;
+    }
+
+    function submit(choice) {
+        if (choice === data[current].type) score++;
+        
+        card.style.transition = 'all 0.2s';
+        card.style.transform = 'scale(0) translate(-50%, -50%)';
+        card.style.opacity = '0';
+
+        current++;
+        setTimeout(() => {
+            card.style.opacity = '1';
+            card.style.transform = 'translate(-50%, -50%) scale(1)';
+            showNext();
+        }, 300);
+    }
+
+    function finish() {
+        document.getElementById('result-screen').style.display = 'flex';
+        document.getElementById('final-text').innerText = `Ergebnis: ${score} von 12 richtig!`;
+    }
+
+    card.addEventListener('mousedown', startEvent);
+    card.addEventListener('touchstart', startEvent, {passive: false});
+
+    window.addEventListener('mousemove', moveEvent);
+    window.addEventListener('touchmove', moveEvent, {passive: false});
+
+    window.addEventListener('mouseup', endEvent);
+    window.addEventListener('touchend', endEvent);
+
+    init();
+</script>
+
+</body>
+</html>
