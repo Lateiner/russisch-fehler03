@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iras Lektion: Das schriftliche Quiz</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --success: #00b894;
+            --error: #d63031;
+            --bg: #f4f7f6;
+            --card-bg: #ffffff;
+        }
+
+        /* Keine Kursivschrift im gesamten Projekt */
+        * {
+            font-style: normal !important;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .header { text-align: center; max-width: 600px; margin-bottom: 30px; }
+
+        .quiz-card {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        .lesson-summary {
+            background: #f0edff;
+            border-left: 5px solid var(--primary);
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 1rem;
+            line-height: 1.5;
+            color: #2d3436;
+        }
+
+        .question-text {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #2d3436;
+        }
+
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .option-btn {
+            background: white;
+            border: 2px solid #dfe6e9;
+            padding: 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: left;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .option-btn:hover { border-color: var(--primary); }
+        .option-btn.correct { background: var(--success); color: white; border-color: var(--success); }
+        .option-btn.wrong { background: var(--error); color: white; border-color: var(--error); }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .btn-solution { background: #fab1a0; color: #2d3436; }
+        .btn-next { background: var(--primary); color: white; flex: 1; display: none; }
+
+        .progress { margin-top: 20px; color: #636e72; }
+
+        @media (max-width: 480px) {
+            .quiz-card { padding: 20px; }
+            .question-text { font-size: 1.1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h2>Iras Lektion: Das schriftliche Quiz</h2>
+    <p>Lies Iras Erklärungen und beantworte die Fragen zu den -СЯ Verben.</p>
+</div>
+
+<div class="quiz-card" id="quiz-ui">
+    <div class="lesson-summary" id="lesson-text">Lade Zusammenfassung...</div>
+    <div class="question-text" id="question-text">Lade Frage...</div>
+    
+    <div class="options-container" id="options-grid">
+        <!-- Optionen kommen hier rein -->
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-solution" id="sol-btn" onclick="showSolution()">Lösung anzeigen</button>
+        <button class="btn btn-next" id="next-btn" onclick="nextQuestion()">Nächster Teil →</button>
+    </div>
+
+    <div class="progress">Teil <span id="current-num">1</span> / 6</div>
+</div>
+
+<script>
+    const quizData = [
+        {
+            summary: "Ira erklärt: Viele Ausländer sagen fälschlicherweise „я учусь русский язык“. Das ist falsch, weil „учиться“ nur mit einem Ort (Wo?) oder einem Fach im Dativ verwendet werden kann.",
+            question: "Welcher Satz ist grammatikalisch korrekt?",
+            options: [
+                { text: "Я учу русский язык.", correct: true },
+                { text: "Я учусь русский язык.", correct: false },
+                { text: "Я учу в университете.", correct: false }
+            ]
+        },
+        {
+            summary: "Ira erklärt: Die Verben „дружить“ (befreundet sein) und „подружиться“ (sich anfreunden) werden oft verwechselt. Das Suffix -СЯ taucht hier nur in einer bestimmten Form auf.",
+            question: "Welches dieser Verben hat KEIN -СЯ?",
+            options: [
+                { text: "Der vollendete Aspekt (подружиться).", correct: false },
+                { text: "Der unvollendete Aspekt (дружить).", correct: true },
+                { text: "Beide haben ein -СЯ.", correct: false }
+            ]
+        },
+        {
+            summary: "Ira erklärt: „Согласиться“ bedeutet einfach nur „Ja“ zu sagen. „Договориться“ bedeutet hingegen, Details wie Zeit und Ort gemeinsam auszuhandeln.",
+            question: "Zwei Freunde wählen einen Kinofilm und eine Uhrzeit aus. Welches Verb passt?",
+            options: [
+                { text: "Они согласились.", correct: false },
+                { text: "Они договорились.", correct: true },
+                { text: "Они поссорились.", correct: false }
+            ]
+        },
+        {
+            summary: "Ira erklärt: Das Wort „конфликт“ nutzen Russen nur für sehr ernste, oft berufliche Situationen. Im privaten Umfeld gibt es ein anderes Wort.",
+            question: "Was sagt Ira, wenn sie und ihr Mann eine kleine Meinungsverschiedenheit haben?",
+            options: [
+                { text: "У нас был конфликт.", correct: false },
+                { text: "Мы поссорились.", correct: true },
+                { text: "Wir haben keine Wörter dafür.", correct: false }
+            ]
+        },
+        {
+            summary: "Ira erklärt: „Встречать“ (ohne -СЯ) hat drei Bedeutungen: Jemanden zufällig treffen, jemanden finden oder jemanden abholen.",
+            question: "Was bedeutet „встречать папу в аэропорту“?",
+            options: [
+                { text: "Den Papa am Flughafen abholen.", correct: true },
+                { text: "Sich mit Papa am Flughafen verabreden.", correct: false },
+                { text: "Mit Papa am Flughafen studieren.", correct: false }
+            ]
+        },
+        {
+            summary: "Ira erklärt den Unterschied zwischen „извинить“ (jemandem verzeihen) und „извиниться“ (sich entschuldigen). Zum Schluss zeigt sie einen Witz über einen Taxifahrer.",
+            question: "Was bedeutet die Aufforderung „Извинитесь!“?",
+            options: [
+                { text: "Entschuldigen Sie mich bitte.", correct: false },
+                { text: "Entschuldigen SIE sich (bei mir)!", correct: true },
+                { text: "Ich entschuldige mich gerade.", correct: false }
+            ]
+        }
+    ];
+
+    let currentIdx = 0;
+    let answered = false;
+
+    function renderStep() {
+        answered = false;
+        const data = quizData[currentIdx];
+        document.getElementById('lesson-text').innerText = data.summary;
+        document.getElementById('question-text').innerText = data.question;
+        document.getElementById('current-num').innerText = currentIdx + 1;
+        document.getElementById('next-btn').style.display = "none";
+        document.getElementById('sol-btn').disabled = false;
+
+        const grid = document.getElementById('options-grid');
+        grid.innerHTML = "";
+
+        data.options.forEach((opt, idx) => {
+            const btn = document.createElement('div');
+            btn.className = "option-btn";
+            btn.innerText = opt.text;
+            btn.onclick = () => checkChoice(btn, opt.correct);
+            grid.appendChild(btn);
+        });
+    }
+
+    function checkChoice(btn, isCorrect) {
+        if (answered) return;
+        answered = true;
+        document.getElementById('sol-btn').disabled = true;
+
+        if (isCorrect) {
+            btn.classList.add('correct');
+        } else {
+            btn.classList.add('wrong');
+            highlightCorrect();
+        }
+        document.getElementById('next-btn').style.display = "inline-block";
+    }
+
+    function highlightCorrect() {
+        const btns = document.querySelectorAll('.option-btn');
+        quizData[currentIdx].options.forEach((opt, idx) => {
+            if (opt.correct) btns[idx].classList.add('correct');
+        });
+    }
+
+    function showSolution() {
+        if (answered) return;
+        highlightCorrect();
+        answered = true;
+        document.getElementById('sol-btn').disabled = true;
+        document.getElementById('next-btn').style.display = "inline-block";
+    }
+
+    function nextQuestion() {
+        currentIdx++;
+        if (currentIdx < quizData.length) {
+            renderStep();
+        } else {
+            document.getElementById('quiz-ui').innerHTML = "<h3>Hervorragend!</h3><p>Du hast das schriftliche Video-Quiz abgeschlossen und alle Erklärungen von Ira gelernt.</p><button class='btn btn-next' style='display:inline-block' onclick='location.reload()'>Neustart</button>";
+        }
+    }
+
+    renderStep();
+</script>
+
+</body>
+</html>
