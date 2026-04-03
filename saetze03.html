@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Russisch: Satz-Vervollständigung</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --success: #00b894;
+            --error: #d63031;
+            --bg: #f4f7f6;
+            --tile-bg: #ffffff;
+        }
+
+        /* Keine Kursivschrift */
+        * {
+            font-style: normal !important;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header { text-align: center; max-width: 600px; margin-bottom: 20px; }
+
+        .game-container {
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
+
+        .sentence-start {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2d3436;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f1f2f6;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        /* Anzeige für die gewählten Wörter */
+        .selection-display {
+            min-height: 60px;
+            border: 2px dashed #ddd;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+        }
+
+        .selection-display .word-tag {
+            background: var(--primary);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        /* Wort-Pool */
+        .word-pool {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .pool-btn {
+            background: white;
+            border: 2px solid #dfe6e9;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .pool-btn:hover { border-color: var(--primary); background: #f9f9ff; }
+        .pool-btn.selected { background-color: var(--primary); color: white; border-color: var(--primary); }
+
+        .feedback {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        .controls {
+            margin-top: 25px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+        }
+
+        .btn-check { background: var(--primary); }
+        .btn-check:disabled { opacity: 0.3; cursor: not-allowed; }
+        .btn-sol { background: #e67e22; }
+
+        @media (max-width: 480px) {
+            .word-pool { grid-template-columns: 1fr; }
+            .sentence-start { font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h2>Satz-Vervollständigung</h2>
+    <p>Wähle genau <b>2 Wörter</b> aus dem Pool aus, die den Satz korrekt beenden.</p>
+</div>
+
+<div class="game-container" id="quiz-ui">
+    <div class="sentence-start" id="sentence-start">Я учусь...</div>
+    
+    <div class="selection-display" id="selection-area">
+        <span style="color:#b2bec3">Klicke Wörter unten an...</span>
+    </div>
+
+    <div class="word-pool" id="pool-area">
+        <!-- Wörter werden hier geladen -->
+    </div>
+
+    <div class="feedback" id="feedback"></div>
+
+    <div class="controls">
+        <button class="btn btn-sol" id="sol-btn" onclick="showSolution()">Lösung</button>
+        <button class="btn btn-check" id="check-btn" onclick="checkAnswer()" disabled>Prüfen</button>
+    </div>
+
+    <div style="margin-top:20px; color:#636e72">Satz <span id="current-num">1</span> / 8</div>
+</div>
+
+<script>
+    const quizData = [
+        {
+            start: "Я учусь...",
+            pool: ["в", "университете", "университет", "русский", "язык", "школа"],
+            correct: ["в", "университете"],
+            why: "Nach 'учиться' folgt der Ort mit 'в' + Präpositional."
+        },
+        {
+            start: "Я учу...",
+            pool: ["в", "университете", "русский", "язык", "школа", "уроке"],
+            correct: ["русский", "язык"],
+            why: "Nach 'учить' folgt das direkte Objekt (Was?) im Akkusativ."
+        },
+        {
+            start: "Я хочу извиниться...",
+            pool: ["перед", "подругой", "подругу", "за", "меня", "тебя"],
+            correct: ["перед", "подругой"],
+            why: "Sich entschuldigen 'перед кем' erfordert den Instrumental."
+        },
+        {
+            start: "Мы договорились...",
+            pool: ["о", "встрече", "встречу", "в", "шесть", "часов"],
+            correct: ["о", "встрече"],
+            why: "Eine Vereinbarung über etwas: 'договориться о' + Präpositional."
+        },
+        {
+            start: "Я случайно встретил...",
+            pool: ["с", "другом", "своего", "друга", "встретился", "метро"],
+            correct: ["своего", "друga"],
+            why: "Zufällige Begegnungen verwenden 'встретить' + Akkusativ (ohne Präposition 'с')."
+        },
+        {
+            start: "Мария и Василий...",
+            pool: ["давно", "встречаются", "встречают", "дружатся", "вчера", "вместе"],
+            correct: ["давно", "встречаются"],
+            why: "Ein Paar sein: 'встречаться' (reflexiv) + Zeitangabe."
+        },
+        {
+            start: "Я полностью согласен...",
+            pool: ["с", "тобой", "тебя", "о", "мнении", "тебе"],
+            correct: ["с", "тобой"],
+            why: "Zustimmung: 'согласен с' + Instrumental."
+        },
+        {
+            start: "Мы с Машей...",
+            pool: ["давно", "дружим", "дружимся", "подружимся", "вчера", "сегодня"],
+            correct: ["давно", "дружим"],
+            why: "Zustand der Freundschaft: 'дружить' (ohne -СЯ) + Zeitangabe."
+        }
+    ];
+
+    let currentIdx = 0;
+    let selectedWords = [];
+
+    function init() {
+        if (currentIdx >= quizData.length) {
+            showFinal();
+            return;
+        }
+        const data = quizData[currentIdx];
+        document.getElementById('sentence-start').innerText = data.start;
+        document.getElementById('current-num').innerText = currentIdx + 1;
+        document.getElementById('feedback').style.display = "none";
+        document.getElementById('sol-btn').disabled = false;
+        selectedWords = [];
+        updateUI();
+        
+        // Pool mischen
+        const poolArea = document.getElementById('pool-area');
+        poolArea.innerHTML = "";
+        const shuffledPool = [...data.pool].sort(() => Math.random() - 0.5);
+        shuffledPool.forEach(word => {
+            const btn = document.createElement('div');
+            btn.className = "pool-btn";
+            btn.innerText = word;
+            btn.onclick = () => toggleWord(word, btn);
+            poolArea.appendChild(btn);
+        });
+    }
+
+    function toggleWord(word, btn) {
+        const index = selectedWords.indexOf(word);
+        if (index > -1) {
+            selectedWords.splice(index, 1);
+            btn.classList.remove('selected');
+        } else if (selectedWords.length < 2) {
+            selectedWords.push(word);
+            btn.classList.add('selected');
+        }
+        updateUI();
+    }
+
+    function updateUI() {
+        const area = document.getElementById('selection-area');
+        if (selectedWords.length === 0) {
+            area.innerHTML = '<span style="color:#b2bec3">Wähle 2 Wörter...</span>';
+        } else {
+            area.innerHTML = selectedWords.map(w => `<span class="word-tag">${w}</span>`).join('');
+        }
+        document.getElementById('check-btn').disabled = selectedWords.length !== 2;
+    }
+
+    function checkAnswer() {
+        const data = quizData[currentIdx];
+        // Da die Reihenfolge wichtig sein kann (Präposition zuerst), prüfen wir beide Varianten
+        const s1 = selectedWords.join(' ');
+        const s2 = [...selectedWords].reverse().join(' ');
+        const correctStr = data.correct.join(' ');
+
+        const isCorrect = (s1 === correctStr || s2 === correctStr);
+        const fb = document.getElementById('feedback');
+        fb.style.display = "block";
+
+        if (isCorrect) {
+            fb.style.backgroundColor = "#e6fffb";
+            fb.style.border = "1px solid var(--success)";
+            fb.innerHTML = `<strong style="color:var(--success)">Richtig!</strong><br>${data.why}`;
+            document.getElementById('check-btn').innerText = "Weiter →";
+            document.getElementById('check-btn').onclick = nextStep;
+        } else {
+            fb.style.backgroundColor = "#fff1f0";
+            fb.style.border = "1px solid var(--error)";
+            fb.innerHTML = `<strong style="color:var(--error)">Leider falsch.</strong> Versuche es noch einmal oder schaue die Lösung an.`;
+        }
+    }
+
+    function showSolution() {
+        const data = quizData[currentIdx];
+        selectedWords = [...data.correct];
+        updateUI();
+        // Alle Buttons zurücksetzen und nur die richtigen markieren
+        document.querySelectorAll('.pool-btn').forEach(btn => {
+            btn.classList.toggle('selected', data.correct.includes(btn.innerText));
+        });
+        checkAnswer();
+        document.getElementById('sol-btn').disabled = true;
+    }
+
+    function nextStep() {
+        currentIdx++;
+        document.getElementById('check-btn').innerText = "Prüfen";
+        document.getElementById('check-btn').onclick = checkAnswer;
+        init();
+    }
+
+    function showFinal() {
+        document.getElementById('quiz-ui').innerHTML = "<h3>Hervorragend!</h3><p>Du hast alle Sätze vervollständigt.</p><button class='btn btn-check' onclick='location.reload()'>Neustart</button>";
+    }
+
+    init();
+</script>
+
+</body>
+</html>
