@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Russisch-Korrektor: Finde den Fehler</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --success: #00b894;
+            --error: #d63031;
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+        }
+
+        /* Generelle Stile - Kursivschrift wird explizit ausgeschaltet */
+        * {
+            font-style: normal !important;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header { text-align: center; margin-bottom: 30px; }
+
+        .game-container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .instruction { 
+            color: #636e72; 
+            margin-bottom: 20px; 
+            font-weight: bold; 
+        }
+
+        .sentence-display {
+            font-size: 1.8rem;
+            line-height: 2.5;
+            margin-bottom: 30px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .word {
+            padding: 0 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 3px solid transparent;
+            user-select: none;
+        }
+
+        .word:hover { background-color: #eee; border-bottom-color: var(--primary); }
+
+        .word.shake { animation: shake 0.4s; color: var(--error); }
+        .word.corrected { 
+            animation: pop 0.5s; 
+            color: var(--success); 
+            font-weight: bold;
+            border-bottom-color: var(--success);
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .explanation {
+            min-height: 50px;
+            margin-top: 20px;
+            color: #2d3436;
+            line-height: 1.4;
+            font-weight: 400;
+        }
+
+        .btn-next {
+            margin-top: 30px;
+            padding: 12px 30px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+        }
+
+        .progress { margin-top: 20px; color: #b2bec3; font-size: 0.9rem; }
+
+        @media (max-width: 480px) {
+            .sentence-display { font-size: 1.4rem; }
+            .game-container { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h2>Fehlersuche</h2>
+    <p>Klicke auf das falsche Wort im Satz!</p>
+</div>
+
+<div class="game-container">
+    <div class="instruction">Finde den Fehler:</div>
+    
+    <div class="sentence-display" id="sentence-area">
+        <!-- Wörter werden hier geladen -->
+    </div>
+
+    <div class="explanation" id="explanation"></div>
+
+    <button class="btn-next" id="next-btn" onclick="loadNext()">Nächster Satz →</button>
+
+    <div class="progress">Satz <span id="current-num">1</span> / 8</div>
+</div>
+
+<script>
+    const quizData = [
+        {
+            words: ["Я", "учусь", "русский", "язык."],
+            errorIndex: 1,
+            correction: "учу",
+            text: "Nach dem Verb 'учусь' muss ein Ort (Wo?) oder ein Fach im Dativ folgen. Für das direkte Objekt (Was?) benutzt man 'учу'."
+        },
+        {
+            words: ["Мы", "с", "Машей", "дружимся."],
+            errorIndex: 3,
+            correction: "дружим.",
+            text: "Das Verb 'дружить' hat im unvollendeten Aspekt kein -СЯ."
+        },
+        {
+            words: ["Мы", "согласились", "встретиться", "в", "6", "часов."],
+            errorIndex: 1,
+            correction: "договорились",
+            text: "Wenn man einen Termin oder Ort gemeinsam aushandelt, nutzt man 'договориться'. 'Согласиться' bedeutet lediglich 'Ja' zu einem Vorschlag zu sagen."
+        },
+        {
+            words: ["Я", "встретился", "друга", "случайно."],
+            errorIndex: 1,
+            correction: "встретил",
+            text: "Zufällige Begegnungen mit Personen im Akkusativ nutzen 'встретить' ohne -СЯ."
+        },
+        {
+            words: ["Извинитесь,", "я", "опаздываю."],
+            errorIndex: 0,
+            correction: "Извините,",
+            text: "'Извинитесь' ist eine Aufforderung an den anderen, sich zu entschuldigen. Richtig ist die Bitte um Verzeihung: 'Извините'."
+        },
+        {
+            words: ["Я", "учу", "в", "университете."],
+            errorIndex: 1,
+            correction: "учусь",
+            text: "Wenn der Ort (Wo?) genannt wird, nutzt man das reflexive Verb 'учусь'."
+        },
+        {
+            words: ["Мы", "поссорили", "утром."],
+            errorIndex: 1,
+            correction: "поссорились",
+            text: "Sich streiten ist eine wechselseitige Handlung und erfordert zwingend das Suffix -СЯ."
+        },
+        {
+            words: ["Я", "хочу", "извинить", "перед", "тобой."],
+            errorIndex: 2,
+            correction: "извиниться",
+            text: "Um sich selbst zu entschuldigen, erfordert das Verb das reflexive Suffix: 'извиниться'."
+        }
+    ];
+
+    let currentIdx = 0;
+    let solved = false;
+
+    function renderSentence() {
+        const area = document.getElementById('sentence-area');
+        const data = quizData[currentIdx];
+        area.innerHTML = "";
+        solved = false;
+        document.getElementById('explanation').innerText = "";
+        document.getElementById('next-btn').style.display = "none";
+        document.getElementById('current-num').innerText = currentIdx + 1;
+
+        data.words.forEach((word, index) => {
+            const span = document.createElement('span');
+            span.className = "word";
+            span.innerText = word;
+            span.onclick = () => handleWordClick(span, index);
+            area.appendChild(span);
+        });
+    }
+
+    function handleWordClick(element, index) {
+        if (solved) return;
+
+        const data = quizData[currentIdx];
+
+        if (index === data.errorIndex) {
+            solved = true;
+            element.innerText = data.correction;
+            element.classList.add('corrected');
+            document.getElementById('explanation').innerText = data.text;
+            document.getElementById('next-btn').style.display = "inline-block";
+        } else {
+            element.classList.add('shake');
+            setTimeout(() => element.classList.remove('shake'), 400);
+        }
+    }
+
+    function loadNext() {
+        currentIdx++;
+        if (currentIdx < quizData.length) {
+            renderSentence();
+        } else {
+            document.getElementById('sentence-area').innerHTML = "<h3>Hervorragend!</h3><p>Du hast alle Fehler gefunden.</p>";
+            document.getElementById('next-btn').style.display = "none";
+            document.getElementById('explanation').innerText = "";
+        }
+    }
+
+    renderSentence();
+</script>
+
+</body>
+</html>
