@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Russisch Audio-Quiz: -СЯ Verben</title>
+    <style>
+        :root {
+            --primary: #0984e3;
+            --success: #00b894;
+            --error: #d63031;
+            --bg: #f5f6fa;
+            --card-bg: #ffffff;
+        }
+
+        /* Keine Kursivschrift */
+        * {
+            font-style: normal !important;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .quiz-container {
+            width: 100%;
+            max-width: 500px;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .audio-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            font-size: 2rem;
+            cursor: pointer;
+            margin-bottom: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s, background 0.3s;
+            box-shadow: 0 5px 15px rgba(9, 132, 227, 0.4);
+        }
+
+        .audio-btn:active { transform: scale(0.9); }
+        .audio-btn:hover { background-color: #0873c4; }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .option {
+            background: white;
+            border: 2px solid #dfe6e9;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .option:hover { border-color: var(--primary); background-color: #f0f7ff; }
+        .option.correct { background-color: var(--success); color: white; border-color: var(--success); }
+        .option.wrong { background-color: var(--error); color: white; border-color: var(--error); }
+
+        .status { margin-top: 20px; font-weight: bold; height: 24px; }
+        
+        .progress {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #636e72;
+        }
+
+        #start-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .btn-main {
+            padding: 15px 40px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div id="start-screen">
+    <h2>Audio-Quiz</h2>
+    <p>Höre den Satz und wähle das richtige Verb.</p>
+    <button class="btn-main" onclick="startQuiz()">Spiel starten</button>
+</div>
+
+<div class="quiz-container" id="quiz-ui" style="display:none">
+    <button class="audio-btn" onclick="playAudio()">🔊</button>
+    <p>Klicke auf den Button, um den Satz zu hören.</p>
+
+    <div class="options-grid" id="options-grid">
+        <!-- Buttons werden hier geladen -->
+    </div>
+
+    <div class="status" id="status"></div>
+    <div class="progress">Satz <span id="current-num">1</span> / 10</div>
+</div>
+
+<script>
+    const quizData = [
+        { sentence: "Я учусь в университете.", correct: "учусь", options: ["учу", "учусь", "учит"] },
+        { sentence: "Я учу русский язык.", correct: "учу", options: ["учу", "учусь", "учишься"] },
+        { sentence: "Мы договорились встретиться завтра.", correct: "встретиться", options: ["встретить", "встретиться", "встречаешь"] },
+        { sentence: "Я встретил друга в метро случайно.", correct: "встретил", options: ["встретил", "встретился", "встречаемся"] },
+        { sentence: "Тебе нужно извиниться перед ней.", correct: "извиниться", options: ["извинить", "извиниться", "извините"] },
+        { sentence: "Мы с Машей дружим уже давно.", correct: "дружим", options: ["дружим", "дружимся", "подружимся"] },
+        { sentence: "Я согласен с твоим мнением.", correct: "согласен", options: ["согласен", "договорился", "согласиться"] },
+        { sentence: "Они поссорились сегодня утром.", correct: "поссорились", options: ["поссорили", "поссорились", "ссорим"] },
+        { sentence: "Мы договорились о времени встречи.", correct: "договорились", options: ["согласились", "договорились", "договоримся"] },
+        { sentence: "Вы хорошо учитесь?", correct: "учитесь", options: ["учите", "учитесь", "учишь"] }
+    ];
+
+    let currentIdx = 0;
+    let score = 0;
+    let russianVoice = null;
+    let canClick = true;
+
+    // Stimmen laden und nach einer männlichen russischen Stimme suchen
+    function loadVoices() {
+        const voices = window.speechSynthesis.getVoices();
+        // Suche nach RU Stimme, idealerweise männlich (viele Systeme haben "Pavel" oder "Maxim")
+        russianVoice = voices.find(v => v.lang.startsWith('ru') && (v.name.includes('Male') || v.name.includes('Pavel') || v.name.includes('Maxim'))) 
+                       || voices.find(v => v.lang.startsWith('ru'));
+    }
+
+    // Für Chrome/Safari müssen Stimmen beim Laden initialisiert werden
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+
+    function startQuiz() {
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('quiz-ui').style.display = 'block';
+        loadVoices();
+        renderQuestion();
+    }
+
+    function playAudio() {
+        if (!window.speechSynthesis) {
+            alert("Dein Browser unterstützt keine Sprachausgabe.");
+            return;
+        }
+        const utterance = new SpeechSynthesisUtterance(quizData[currentIdx].sentence);
+        utterance.voice = russianVoice;
+        utterance.lang = 'ru-RU';
+        utterance.rate = 0.9; // Etwas langsamer für besseres Verständnis
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function renderQuestion() {
+        canClick = true;
+        const data = quizData[currentIdx];
+        const grid = document.getElementById('options-grid');
+        const status = document.getElementById('status');
+        
+        status.innerText = "";
+        grid.innerHTML = "";
+        document.getElementById('current-num').innerText = currentIdx + 1;
+
+        data.options.forEach(opt => {
+            const btn = document.createElement('div');
+            btn.className = 'option';
+            btn.innerText = opt;
+            btn.onclick = () => checkAnswer(btn, opt);
+            grid.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(btn, choice) {
+        if (!canClick) return;
+        canClick = false;
+
+        const correct = quizData[currentIdx].correct;
+        const status = document.getElementById('status');
+
+        if (choice === correct) {
+            btn.classList.add('correct');
+            status.innerHTML = "<span style='color:var(--success)'>Richtig!</span>";
+            score++;
+        } else {
+            btn.classList.add('wrong');
+            status.innerHTML = `<span style='color:var(--error)'>Falsch. (Lösung: ${correct})</span>`;
+            // Richtige Option markieren
+            Array.from(document.querySelectorAll('.option')).forEach(b => {
+                if(b.innerText === correct) b.classList.add('correct');
+            });
+        }
+
+        setTimeout(() => {
+            currentIdx++;
+            if (currentIdx < quizData.length) {
+                renderQuestion();
+            } else {
+                showResults();
+            }
+        }, 1800);
+    }
+
+    function showResults() {
+        document.getElementById('quiz-ui').innerHTML = `
+            <h2>Ergebnis</h2>
+            <p style="font-size: 1.5rem">Du hast ${score} von 10 Punkten erreicht.</p>
+            <button class="btn-main" onclick="location.reload()">Neustart</button>
+        `;
+    }
+</script>
+
+</body>
+</html>
