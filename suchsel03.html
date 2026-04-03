@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Russisch Wortsuche: -СЯ Verben</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --success: #00b894;
+            --highlight: #fab1a0;
+            --solution: #fdcb6e;
+            --bg: #f0f2f5;
+            --text: #2d3436;
+        }
+
+        /* Keine Kursivschrift im gesamten Projekt */
+        * {
+            font-style: normal !important;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .header { text-align: center; margin-bottom: 20px; }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        /* Das Gitter */
+        .word-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 2px;
+            background-color: #dfe6e9;
+            border: 2px solid #b2bec3;
+            padding: 2px;
+            border-radius: 8px;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+        }
+
+        .cell {
+            background-color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+
+        .cell:hover { background-color: #f1f2f6; }
+        .cell.selected { background-color: var(--highlight); color: white; }
+        .cell.found { background-color: var(--success); color: white; }
+        .cell.is-solution { background-color: var(--solution); color: #000; border: 1px solid var(--primary); }
+
+        /* Wortliste */
+        .word-list-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        .word-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            list-style: none;
+            padding: 0;
+        }
+
+        .word-item {
+            font-size: 1rem;
+            padding: 5px;
+            transition: color 0.3s;
+        }
+
+        .word-item.found {
+            text-decoration: line-through;
+            color: #b2bec3;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: opacity 0.3s;
+        }
+
+        .btn-restart { background-color: var(--primary); color: white; flex: 1; }
+        .btn-solution { background-color: var(--solution); color: #000; flex: 1; }
+        .btn:active { opacity: 0.8; }
+
+        @media (max-width: 480px) {
+            .cell { font-size: 0.85rem; }
+            .word-list { grid-template-columns: 1fr; }
+            .controls { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h2>Wortschatz-Gitter</h2>
+    <p>Markiere den Anfang und das Ende eines Verbs.</p>
+</div>
+
+<div class="game-container">
+    <div class="word-grid" id="grid"></div>
+
+    <div class="word-list-container">
+        <h3>Suchen:</h3>
+        <ul class="word-list" id="word-list-ui"></ul>
+        
+        <div class="controls">
+            <button class="btn btn-restart" onclick="location.reload()">Neustart</button>
+            <button class="btn btn-solution" id="solution-btn" onclick="showAllSolutions()">Lösung anzeigen</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const GRID_SIZE = 12;
+    const targetWords = [
+        "УЧИТЬСЯ", "УЧИТЬ", "ДРУЖИТЬ", "ССОРИТЬСЯ", 
+        "ВСТРЕТИТЬ", "ИЗВИНИТЬ", "СОГЛАСИТЬСЯ", "ДОГОВОРИТЬСЯ"
+    ];
+
+    let grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(''));
+    let wordLocations = {}; // Speichert die Koordinaten der platzierten Wörter
+    let startCell = null;
+    let foundWords = [];
+
+    function initGame() {
+        targetWords.forEach(word => {
+            let placed = false;
+            let attempts = 0;
+            while (!placed && attempts < 100) {
+                const isHorizontal = Math.random() > 0.5;
+                const row = Math.floor(Math.random() * (isHorizontal ? GRID_SIZE : GRID_SIZE - word.length));
+                const col = Math.floor(Math.random() * (isHorizontal ? GRID_SIZE - word.length : GRID_SIZE));
+
+                if (canPlace(word, row, col, isHorizontal)) {
+                    wordLocations[word] = [];
+                    for (let i = 0; i < word.length; i++) {
+                        const r = isHorizontal ? row : row + i;
+                        const c = isHorizontal ? col + i : col;
+                        grid[r][c] = word[i];
+                        wordLocations[word].push({r, c});
+                    }
+                    placed = true;
+                }
+                attempts++;
+            }
+        });
+
+        // Mit Zufallsbuchstaben auffüllen
+        const letters = "АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЩЫЭЮЯ";
+        for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+                if (grid[r][c] === '') {
+                    grid[r][c] = letters[Math.floor(Math.random() * letters.length)];
+                }
+            }
+        }
+
+        renderGrid();
+        renderWordList();
+    }
+
+    function canPlace(word, row, col, isHorizontal) {
+        for (let i = 0; i < word.length; i++) {
+            const r = isHorizontal ? row : row + i;
+            const c = isHorizontal ? col + i : col;
+            if (grid[r][c] !== '' && grid[r][c] !== word[i]) return false;
+        }
+        return true;
+    }
+
+    function renderGrid() {
+        const gridUI = document.getElementById('grid');
+        gridUI.innerHTML = '';
+        for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.innerText = grid[r][c];
+                cell.dataset.r = r;
+                cell.dataset.c = c;
+                cell.onclick = () => handleCellClick(r, c, cell);
+                gridUI.appendChild(cell);
+            }
+        }
+    }
+
+    function renderWordList() {
+        const listUI = document.getElementById('word-list-ui');
+        listUI.innerHTML = '';
+        targetWords.forEach(word => {
+            const li = document.createElement('li');
+            li.className = 'word-item';
+            li.id = 'word-' + word;
+            li.innerText = word;
+            listUI.appendChild(li);
+        });
+    }
+
+    function handleCellClick(r, c, element) {
+        if (element.classList.contains('found')) return;
+
+        if (!startCell) {
+            startCell = { r, c, element };
+            element.classList.add('selected');
+        } else {
+            const endCell = { r, c, element };
+            checkSelection(startCell, endCell);
+            startCell.element.classList.remove('selected');
+            startCell = null;
+        }
+    }
+
+    function checkSelection(start, end) {
+        let word = "";
+        let cellsInSelection = [];
+
+        if (start.r === end.r) { // Horizontal
+            const minC = Math.min(start.c, end.c);
+            const maxC = Math.max(start.c, end.c);
+            for (let c = minC; c <= maxC; c++) {
+                word += grid[start.r][c];
+                cellsInSelection.push({ r: start.r, c });
+            }
+        } else if (start.c === end.c) { // Vertikal
+            const minR = Math.min(start.r, end.r);
+            const maxR = Math.max(start.r, end.r);
+            for (let r = minR; r <= maxR; r++) {
+                word += grid[r][start.c];
+                cellsInSelection.push({ r, c: start.c });
+            }
+        }
+
+        const reversedWord = word.split('').reverse().join('');
+        
+        if (targetWords.includes(word) || targetWords.includes(reversedWord)) {
+            const finalWord = targetWords.includes(word) ? word : reversedWord;
+            if (!foundWords.includes(finalWord)) {
+                markAsFound(cellsInSelection, finalWord);
+            }
+        }
+    }
+
+    function markAsFound(cells, word) {
+        if (foundWords.includes(word)) return;
+        foundWords.push(word);
+        cells.forEach(cellPos => {
+            const cellElement = document.querySelector(`.cell[data-r='${cellPos.r}'][data-c='${cellPos.c}']`);
+            cellElement.classList.add('found');
+        });
+        document.getElementById('word-' + word).classList.add('found');
+
+        if (foundWords.length === targetWords.length) {
+            setTimeout(() => alert("Glückwunsch! Du hast alle Wörter gefunden."), 300);
+        }
+    }
+
+    function showAllSolutions() {
+        targetWords.forEach(word => {
+            const cells = wordLocations[word];
+            if (cells) {
+                cells.forEach(pos => {
+                    const cellEl = document.querySelector(`.cell[data-r='${pos.r}'][data-c='${pos.c}']`);
+                    cellEl.classList.add('is-solution');
+                });
+                document.getElementById('word-' + word).classList.add('found');
+            }
+        });
+        document.getElementById('solution-btn').disabled = true;
+    }
+
+    initGame();
+</script>
+
+</body>
+</html>
