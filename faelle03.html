@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kasus-Master: Russisch</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --accent: #a29bfe;
+            --success: #00b894;
+            --error: #d63031;
+            --bg: #f8f9fa;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .verb-display {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .instruction {
+            color: #636e72;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+
+        /* Das Raster für die Auswahl-Buttons */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .option-btn {
+            background: white;
+            border: 2px solid #dfe6e9;
+            padding: 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .option-btn:hover { border-color: var(--primary); background: #f9f8ff; }
+        .option-btn.correct { background: var(--success); color: white; border-color: var(--success); }
+        .option-btn.wrong { background: var(--error); color: white; border-color: var(--error); }
+        
+        .option-btn .question { font-weight: bold; font-size: 1.2rem; }
+        .option-btn .example { font-size: 0.9rem; opacity: 0.8; }
+
+        #feedback {
+            margin-top: 20px;
+            font-weight: bold;
+            height: 24px;
+        }
+
+        .result-screen {
+            display: none;
+        }
+
+        /* Mobile Optimierung */
+        @media (max-width: 480px) {
+            .options-grid { grid-template-columns: 1fr; }
+            .verb-display { font-size: 2rem; }
+            .container { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container" id="game-ui">
+    <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    
+    <div class="instruction">Welche Frage / welcher Fall passt?</div>
+    <div class="verb-display" id="verb-text">учиться</div>
+    
+    <div class="options-grid" id="options-grid">
+        <!-- Buttons werden per JS geladen -->
+    </div>
+
+    <div id="feedback"></div>
+</div>
+
+<div class="container result-screen" id="result-screen">
+    <h2>Übung abgeschlossen!</h2>
+    <p style="font-size: 1.2rem">Du hast <span id="score">0</span> von 12 Fragen richtig beantwortet.</p>
+    <button onclick="location.reload()" style="padding: 15px 30px; background: var(--primary); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold;">Nochmal spielen</button>
+</div>
+
+<script>
+    const gameData = [
+        { verb: "учиться", correct: { q: "чему?", ex: "русскому языку" }, wrong: ["что?", "кого?", "с кем?"] },
+        { verb: "учиться", correct: { q: "где?", ex: "в университете" }, wrong: ["кого?", "за что?", "на что?"] },
+        { verb: "учить", correct: { q: "что?", ex: "русский язык" }, wrong: ["чему?", "где?", "о чём?"] },
+        { verb: "дружить", correct: { q: "с кем?", ex: "с Машей" }, wrong: ["кому?", "кого?", "о ком?"] },
+        { verb: "встретить", correct: { q: "кого?", ex: "друга (случайно)" }, wrong: ["с кем?", "чему?", "о чём?"] },
+        { verb: "встретиться", correct: { q: "с кем?", ex: "с коллегой (план)" }, wrong: ["кого?", "что?", "кому?"] },
+        { verb: "извиниться", correct: { q: "перед кем?", ex: "перед подругой" }, wrong: ["кого?", "кому?", "о ком?"] },
+        { verb: "извинить", correct: { q: "кого?", ex: "меня" }, wrong: ["перед кем?", "с кем?", "чему?"] },
+        { verb: "договориться", correct: { q: "о чём?", ex: "о встрече" }, wrong: ["что?", "чему?", "кого?"] },
+        { verb: "согласиться", correct: { q: "с кем?", ex: "с другом" }, wrong: ["кого?", "кому?", "чего?"] },
+        { verb: "подружиться", correct: { q: "с кем?", ex: "с Юлей" }, wrong: ["кого?", "что?", "чему?"] },
+        { verb: "ссориться", correct: { q: "с кем?", ex: "с мужем" }, wrong: ["кого?", "что?", "чему?"] }
+    ];
+
+    let currentIdx = 0;
+    let score = 0;
+    let canClick = true;
+
+    function initGame() {
+        gameData.sort(() => Math.random() - 0.5);
+        renderQuestion();
+    }
+
+    function renderQuestion() {
+        if (currentIdx >= gameData.length) {
+            showResults();
+            return;
+        }
+
+        canClick = true;
+        const data = gameData[currentIdx];
+        document.getElementById('verb-text').innerText = data.verb;
+        document.getElementById('feedback').innerText = "";
+        
+        // Optionen mischen
+        const options = [
+            { text: data.correct.q, ex: data.correct.ex, isCorrect: true },
+            ...data.wrong.map(w => ({ text: w, ex: "---", isCorrect: false }))
+        ].sort(() => Math.random() - 0.5);
+
+        const grid = document.getElementById('options-grid');
+        grid.innerHTML = "";
+
+        options.forEach(opt => {
+            const btn = document.createElement('div');
+            btn.className = 'option-btn';
+            btn.innerHTML = `<span class="question">${opt.text}</span><span class="example">${opt.ex}</span>`;
+            btn.onclick = () => checkAnswer(btn, opt.isCorrect);
+            grid.appendChild(btn);
+        });
+
+        updateProgress();
+    }
+
+    function checkAnswer(btn, isCorrect) {
+        if (!canClick) return;
+        canClick = false;
+
+        if (isCorrect) {
+            score++;
+            btn.classList.add('correct');
+            document.getElementById('feedback').innerHTML = "<span style='color:var(--success)'>Richtig!</span>";
+        } else {
+            btn.classList.add('wrong');
+            document.getElementById('feedback').innerHTML = "<span style='color:var(--error)'>Leider falsch.</span>";
+            // Zeige die richtige Lösung
+            Array.from(document.querySelectorAll('.option-btn')).forEach(b => {
+                if (b.querySelector('.question').innerText === gameData[currentIdx].correct.q) {
+                    b.classList.add('correct');
+                }
+            });
+        }
+
+        setTimeout(() => {
+            currentIdx++;
+            renderQuestion();
+        }, 1500);
+    }
+
+    function updateProgress() {
+        const percent = (currentIdx / gameData.length) * 100;
+        document.getElementById('progress-fill').style.width = percent + "%";
+    }
+
+    function showResults() {
+        document.getElementById('game-ui').style.display = 'none';
+        document.getElementById('result-screen').style.display = 'block';
+        document.getElementById('score').innerText = score;
+    }
+
+    initGame();
+</script>
+
+</body>
+</html>
