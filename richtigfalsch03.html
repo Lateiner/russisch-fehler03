@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Russisch Kontext-Check</title>
+    <style>
+        :root {
+            --primary: #3498db;
+            --success: #27ae60;
+            --error: #e74c3c;
+            --bg: #f4f7f6;
+            --text: #2c3e50;
+        }
+
+        /* Keine Kursivschrift */
+        * {
+            font-style: normal !important;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            max-width: 600px;
+            margin-bottom: 30px;
+        }
+
+        .quiz-card {
+            background: white;
+            width: 100%;
+            max-width: 600px;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .scenario-box {
+            background: #fdf9ea;
+            border-left: 5px solid #f1c40f;
+            padding: 15px;
+            margin-bottom: 25px;
+            font-size: 1.1rem;
+            text-align: left;
+            line-height: 1.4;
+        }
+
+        .russian-sentence {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 30px;
+            padding: 10px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .btn {
+            padding: 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        .btn-true { background-color: var(--success); }
+        .btn-false { background-color: var(--error); }
+        .btn:active { transform: scale(0.95); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .explanation {
+            margin-top: 25px;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+            line-height: 1.5;
+            text-align: left;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+        }
+
+        .btn-next {
+            margin-top: 20px;
+            padding: 12px 25px;
+            background: var(--text);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: none;
+        }
+
+        .score-display {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        @media (max-width: 480px) {
+            .russian-sentence { font-size: 1.4rem; }
+            .btn { padding: 15px; font-size: 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h2>Kontext-Check</h2>
+    <p>Passt der russische Satz zur beschriebenen Situation?</p>
+</div>
+
+<div class="quiz-card">
+    <div class="scenario-box" id="scenario">Wird geladen...</div>
+    <div class="russian-sentence" id="sentence">---</div>
+
+    <div class="controls" id="controls">
+        <button class="btn btn-true" onclick="checkAnswer(true)">RICHTIG</button>
+        <button class="btn btn-false" onclick="checkAnswer(false)">FALSCH</button>
+    </div>
+
+    <div class="explanation" id="explanation"></div>
+    <button class="btn-next" id="next-btn" onclick="nextQuestion()">Nächste Frage</button>
+</div>
+
+<div class="score-display">
+    Fortschritt: <span id="current-num">1</span> / 10
+</div>
+
+<script>
+    const quizData = [
+        {
+            scenario: "Du bist am Flughafen, um deinen Vater abzuholen, der gerade gelandet ist.",
+            sentence: "Я встречаюсь с папой.",
+            correct: false,
+            desc: "Falsch. „Встречаться“ bedeutet ein geplantes Treffen oder ein Date. Wenn man jemanden am Bahnhof oder Flughafen abholt, benutzt man „встречать“ (ohne -СЯ)."
+        },
+        {
+            scenario: "Du erzählst jemandem, dass du an der Universität eingeschrieben bist und dort studierst.",
+            sentence: "Я учусь в университете.",
+            correct: true,
+            desc: "Richtig. Wenn man den Ort des Studiums (Wo?) nennt, ist das reflexive Verb „учиться“ korrekt."
+        },
+        {
+            scenario: "Du und dein Freund überlegt, ob ihr um 18:00 oder 19:00 Uhr ins Kino geht. Ihr diskutiert und findet eine Lösung.",
+            sentence: "Мы согласились встретиться в 6.",
+            correct: false,
+            desc: "Falsch. „Согласиться“ bedeutet nur „Ja“ zu sagen. Wenn man Details wie Zeit oder Ort aushandelt und festlegt, benutzt man „договориться“."
+        },
+        {
+            scenario: "Du bist gestern in der U-Bahn zufällig einem alten Freund begegnet. Ihr hattet das nicht geplant.",
+            sentence: "Я встретил друга в метро.",
+            correct: true,
+            desc: "Richtig. Für eine zufällige, ungeplante Begegnung benutzt man „встретить“ (ohne -СЯ) mit dem Akkusativ."
+        },
+        {
+            scenario: "Du hast dich mit deiner Freundin gestritten. Jetzt möchtest du „Entschuldigung“ zu ihr sagen.",
+            sentence: "Я хочу извиниться перед тобой.",
+            correct: true,
+            desc: "Richtig. Um selbst um Verzeihung zu bitten, benutzt man „извиниться“."
+        },
+        {
+            scenario: "Du möchtest sagen, dass du die russische Sprache als Fach lernst (direktes Objekt).",
+            sentence: "Я учусь русский язык.",
+            correct: false,
+            desc: "Falsch. Das Verb „учиться“ kann kein direktes Objekt (Was?) im Akkusativ haben. Richtig wäre: „Я учу русский язык“."
+        },
+        {
+            scenario: "Du arbeitest als Lehrer und unterrichtest Kinder.",
+            sentence: "Я учу детей.",
+            correct: true,
+            desc: "Richtig. „Учить“ (ohne -СЯ) bedeutet jemanden unterrichten oder etwas lehren."
+        },
+        {
+            scenario: "Du möchtest sagen, dass du und Maria schon seit Jahren eine feste Freundschaft pflegt.",
+            sentence: "Мы с Машей дружимся много лет.",
+            correct: false,
+            desc: "Falsch. Das Verb „дружить“ (befreundet sein) hat im unvollendeten Aspekt kein -СЯ. Richtig: „Мы дружим“."
+        },
+        {
+            scenario: "Auf der Arbeit gab es ein schweres Fehlverhalten eines Kollegen. Es gibt nun eine offizielle, sehr ernste Untersuchung.",
+            sentence: "У нас на работе конфликт.",
+            correct: true,
+            desc: "Richtig. Ira erklärt, dass „конфликт“ für sehr ernste, offizielle Situationen genutzt wird, während man privat eher „ссора“ (Streit) sagt."
+        },
+        {
+            scenario: "Du möchtest sagen, dass du und dein Geschäftspartner eine Einigung über den Preis erzielt haben.",
+            sentence: "Мы договорились о цене.",
+            correct: true,
+            desc: "Richtig. „Договориться“ ist das Resultat einer Absprache oder Verhandlung."
+        }
+    ];
+
+    let currentIdx = 0;
+    let score = 0;
+
+    function renderQuestion() {
+        const q = quizData[currentIdx];
+        document.getElementById('scenario').innerText = `„${q.scenario}“`;
+        document.getElementById('sentence').innerText = q.sentence;
+        document.getElementById('explanation').style.display = "none";
+        document.getElementById('next-btn').style.display = "none";
+        document.getElementById('current-num').innerText = currentIdx + 1;
+        
+        const btns = document.querySelectorAll('.btn');
+        btns.forEach(b => {
+            b.disabled = false;
+            b.style.opacity = "1";
+        });
+    }
+
+    function checkAnswer(userChoice) {
+        const q = quizData[currentIdx];
+        const isCorrect = userChoice === q.correct;
+        const expl = document.getElementById('explanation');
+        
+        if (isCorrect) {
+            score++;
+            expl.style.borderColor = "var(--success)";
+            expl.innerHTML = `<strong style="color:var(--success)">Richtig!</strong><br>${q.desc}`;
+        } else {
+            expl.style.borderColor = "var(--error)";
+            expl.innerHTML = `<strong style="color:var(--error)">Nicht ganz.</strong><br>${q.desc}`;
+        }
+
+        expl.style.display = "block";
+        document.getElementById('next-btn').style.display = "inline-block";
+        
+        const btns = document.querySelectorAll('.btn');
+        btns.forEach(b => b.disabled = true);
+    }
+
+    function nextQuestion() {
+        currentIdx++;
+        if (currentIdx < quizData.length) {
+            renderQuestion();
+        } else {
+            showFinalResult();
+        }
+    }
+
+    function showFinalResult() {
+        const card = document.querySelector('.quiz-card');
+        card.innerHTML = `
+            <h2>Ergebnis</h2>
+            <p style="font-size: 1.5rem">Du hast ${score} von 10 Punkten erreicht.</p>
+            <button class="btn btn-true" style="width:auto" onclick="location.reload()">Neustart</button>
+        `;
+    }
+
+    init: renderQuestion();
+</script>
+
+</body>
+</html>
