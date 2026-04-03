@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Präpositionen-Zuordnung: Russisch</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --success: #00b894;
+            --error: #d63031;
+            --solution: #e67e22;
+            --bg: #f8f9fa;
+            --card-bg: #ffffff;
+        }
+
+        /* Keine Kursivschrift im gesamten Projekt */
+        * {
+            font-style: normal !important;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .header { text-align: center; max-width: 600px; margin-bottom: 20px; }
+
+        .verb-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 140px; /* Platz für fixierte Buttons */
+        }
+
+        .verb-card {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .verb-name {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2d3436;
+        }
+
+        .drop-zone {
+            width: 100%;
+            height: 40px;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fafafa;
+            font-weight: bold;
+            color: #b2bec3;
+            transition: all 0.2s;
+        }
+
+        .drop-zone.filled {
+            background: var(--primary);
+            color: white;
+            border-style: solid;
+        }
+
+        .verb-card.correct { border-color: var(--success); background: #f0fff4; }
+        .verb-card.wrong { border-color: var(--error); background: #fff5f5; }
+        .verb-card.is-solution { border-color: var(--solution); background: #fff9f0; }
+
+        .preposition-pool {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: white;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .tiles-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .prep-tile {
+            background: var(--primary);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            touch-action: none;
+        }
+
+        .prep-tile.selected {
+            outline: 4px solid #fdcb6e;
+            transform: scale(1.05);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+        }
+
+        .btn-reset { background: #636e72; }
+        .btn-solution { background: var(--solution); }
+
+        @media (max-width: 600px) {
+            .verb-grid { grid-template-columns: 1fr; }
+            .prep-tile { font-size: 0.85rem; padding: 8px 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h2>Präpositionen-Matching</h2>
+    <p>Ordne die richtige Präposition dem Verb zu.</p>
+</div>
+
+<div class="verb-grid" id="verb-grid">
+    <!-- Verben werden per JS geladen -->
+</div>
+
+<div class="preposition-pool">
+    <div class="button-group">
+        <button class="btn btn-reset" onclick="location.reload()">Neustart</button>
+        <button class="btn btn-solution" id="sol-btn" onclick="showAllSolutions()">Lösung anzeigen</button>
+    </div>
+    <div class="tiles-container" id="pool">
+        <div class="prep-tile" draggable="true" ondragstart="drag(event)" onclick="selectPrep(this)">с</div>
+        <div class="prep-tile" draggable="true" ondragstart="drag(event)" onclick="selectPrep(this)">о</div>
+        <div class="prep-tile" draggable="true" ondragstart="drag(event)" onclick="selectPrep(this)">перед</div>
+        <div class="prep-tile" draggable="true" ondragstart="drag(event)" onclick="selectPrep(this)">в</div>
+        <div class="prep-tile" draggable="true" ondragstart="drag(event)" onclick="selectPrep(this)">за</div>
+        <div class="prep-tile" draggable="true" ondragstart="drag(event)" onclick="selectPrep(this)">- (keine)</div>
+    </div>
+</div>
+
+<script>
+    const verbData = [
+        { verb: "Встретиться", correct: "с" },
+        { verb: "Договориться", correct: "о" },
+        { verb: "Извиниться (vor)", correct: "перед" },
+        { verb: "Учиться (Ort)", correct: "в" },
+        { verb: "Согласиться", correct: "с" },
+        { verb: "Дружим", correct: "с" },
+        { verb: "Встречать", correct: "- (keine)" },
+        { verb: "Поссориться", correct: "с" },
+        { verb: "Учить", correct: "- (keine)" },
+        { verb: "Извиниться (für)", correct: "за" }
+    ];
+
+    let selectedPrepTile = null;
+
+    function init() {
+        const grid = document.getElementById('verb-grid');
+        const shuffled = [...verbData].sort(() => Math.random() - 0.5);
+
+        shuffled.forEach((item) => {
+            const card = document.createElement('div');
+            card.className = 'verb-card';
+            card.setAttribute('data-correct', item.correct);
+            card.innerHTML = `
+                <div class="verb-name">${item.verb}</div>
+                <div class="drop-zone" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="drop(event, this)" onclick="clickDrop(this)">?</div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    function selectPrep(el) {
+        if (selectedPrepTile) selectedPrepTile.classList.remove('selected');
+        selectedPrepTile = el;
+        el.classList.add('selected');
+    }
+
+    function clickDrop(zone) {
+        if (selectedPrepTile) {
+            checkAnswer(zone, selectedPrepTile.innerText);
+            selectedPrepTile.classList.remove('selected');
+            selectedPrepTile = null;
+        }
+    }
+
+    function drag(ev) { ev.dataTransfer.setData("text", ev.target.innerText); }
+    function allowDrop(ev) { ev.preventDefault(); ev.target.classList.add('hover'); }
+    function leaveDrop(ev) { ev.target.classList.remove('hover'); }
+
+    function drop(ev, zone) {
+        ev.preventDefault();
+        const data = ev.dataTransfer.getData("text");
+        checkAnswer(zone, data);
+    }
+
+    function checkAnswer(zone, chosenPrep) {
+        const card = zone.parentElement;
+        const correctPrep = card.getAttribute('data-correct');
+
+        zone.innerText = chosenPrep;
+        zone.classList.remove('hover');
+        zone.classList.add('filled');
+
+        if (chosenPrep === correctPrep) {
+            card.classList.add('correct');
+            card.classList.remove('wrong');
+        } else {
+            card.classList.add('wrong');
+            card.classList.remove('correct');
+            setTimeout(() => {
+                zone.innerText = "?";
+                zone.classList.remove('filled');
+                card.classList.remove('wrong');
+            }, 1000);
+        }
+    }
+
+    function showAllSolutions() {
+        const zones = document.querySelectorAll('.drop-zone');
+        zones.forEach(zone => {
+            const card = zone.parentElement;
+            const correct = card.getAttribute('data-correct');
+            zone.innerText = correct;
+            zone.classList.add('filled');
+            card.classList.add('is-solution');
+            card.classList.remove('correct', 'wrong');
+        });
+        document.getElementById('sol-btn').disabled = true;
+    }
+
+    init();
+</script>
+
+</body>
+</html>
