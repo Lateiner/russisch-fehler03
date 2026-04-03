@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Russisch: Verbindungs-Linien</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --success: #00b894;
+            --error: #d63031;
+            --bg: #f8f9fa;
+            --text: #2d3436;
+        }
+
+        /* Keine Kursivschrift im gesamten Projekt */
+        * {
+            font-style: normal !important;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .header { text-align: center; max-width: 600px; margin-bottom: 20px; }
+
+        .game-container {
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 800px;
+            gap: 50px;
+            margin-top: 20px;
+        }
+
+        /* Spalten für Satzteile */
+        .column {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 45%;
+            z-index: 2;
+        }
+
+        .item {
+            background: white;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            text-align: center;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 60px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .item.selected { border-color: var(--primary); background-color: #f0edff; transform: scale(1.02); }
+        .item.matched { border-color: var(--success); background-color: #e6fffb; cursor: default; }
+        .item.error { border-color: var(--error); background-color: #fff1f0; }
+
+        /* SVG Layer für die Linien */
+        #line-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .line {
+            stroke: var(--success);
+            stroke-width: 3;
+            stroke-linecap: round;
+            opacity: 0.6;
+        }
+
+        .controls { margin-top: 30px; display: flex; gap: 15px; }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+        }
+
+        .btn-restart { background: #636e72; }
+        .btn-solution { background: #e67e22; }
+
+        @media (max-width: 600px) {
+            .game-container { gap: 30px; }
+            .item { font-size: 0.8rem; padding: 10px; }
+            .header h2 { font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h2>Satzbau: Verbindungs-Linien</h2>
+    <p>Klicke links einen Anfang und rechts die passende Ergänzung an.</p>
+</div>
+
+<div class="game-container" id="game-area">
+    <svg id="line-svg"></svg>
+    
+    <div class="column" id="left-col">
+        <!-- Anfänge werden hier geladen -->
+    </div>
+
+    <div class="column" id="right-col">
+        <!-- Enden werden hier geladen -->
+    </div>
+</div>
+
+<div class="controls">
+    <button class="btn btn-restart" onclick="location.reload()">Neustart</button>
+    <button class="btn btn-solution" onclick="showAutoSolution()">Lösung anzeigen</button>
+</div>
+
+<script>
+    const pairs = [
+        { id: 1, start: "Я учусь...", end: "...в университете." },
+        { id: 2, start: "Я учу...", end: "...русский язык." },
+        { id: 3, start: "Мы договорились встретиться...", end: "...у метро в 6." },
+        { id: 4, start: "Я случайно встретил...", end: "...старого коллегу." },
+        { id: 5, start: "Я хочу извиниться...", end: "...перед подругой." },
+        { id: 6, start: "Надеюсь, она меня...", end: "...извинит за это." },
+        { id: 7, start: "Я полностью согласен...", end: "...с твоим мнением." },
+        { id: 8, start: "Мы договорились...", end: "...о месте встречи." }
+    ];
+
+    let selectedLeft = null;
+    let selectedRight = null;
+    let matchedPairs = [];
+
+    function init() {
+        const leftCol = document.getElementById('left-col');
+        const rightCol = document.getElementById('right-col');
+
+        const leftItems = [...pairs].sort(() => Math.random() - 0.5);
+        const rightItems = [...pairs].sort(() => Math.random() - 0.5);
+
+        leftItems.forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'item';
+            div.innerText = p.start;
+            div.dataset.id = p.id;
+            div.onclick = () => select(div, 'left');
+            leftCol.appendChild(div);
+        });
+
+        rightItems.forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'item';
+            div.innerText = p.end;
+            div.dataset.id = p.id;
+            div.onclick = () => select(div, 'right');
+            rightCol.appendChild(div);
+        });
+
+        window.addEventListener('resize', drawLines);
+    }
+
+    function select(el, side) {
+        if (el.classList.contains('matched')) return;
+
+        if (side === 'left') {
+            if (selectedLeft) selectedLeft.classList.remove('selected');
+            selectedLeft = el;
+        } else {
+            if (selectedRight) selectedRight.classList.remove('selected');
+            selectedRight = el;
+        }
+        el.classList.add('selected');
+
+        if (selectedLeft && selectedRight) {
+            checkMatch();
+        }
+    }
+
+    function checkMatch() {
+        if (selectedLeft.dataset.id === selectedRight.dataset.id) {
+            // Treffer
+            selectedLeft.classList.replace('selected', 'matched');
+            selectedRight.classList.replace('selected', 'matched');
+            matchedPairs.push({ left: selectedLeft, right: selectedRight });
+            drawLines();
+            selectedLeft = null;
+            selectedRight = null;
+        } else {
+            // Fehler
+            selectedLeft.classList.add('error');
+            selectedRight.classList.add('error');
+            const l = selectedLeft;
+            const r = selectedRight;
+            setTimeout(() => {
+                l.classList.remove('selected', 'error');
+                r.classList.remove('selected', 'error');
+            }, 500);
+            selectedLeft = null;
+            selectedRight = null;
+        }
+    }
+
+    function drawLines() {
+        const svg = document.getElementById('line-svg');
+        svg.innerHTML = '';
+        const areaRect = document.getElementById('game-area').getBoundingClientRect();
+
+        matchedPairs.forEach(pair => {
+            const r1 = pair.left.getBoundingClientRect();
+            const r2 = pair.right.getBoundingClientRect();
+
+            const x1 = r1.right - areaRect.left;
+            const y1 = (r1.top + r1.height / 2) - areaRect.top;
+            const x2 = r2.left - areaRect.left;
+            const y2 = (r2.top + r2.height / 2) - areaRect.top;
+
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("class", "line");
+            line.setAttribute("x1", x1);
+            line.setAttribute("y1", y1);
+            line.setAttribute("x2", x2);
+            line.setAttribute("y2", y2);
+            svg.appendChild(line);
+        });
+    }
+
+    function showAutoSolution() {
+        // Alle Paare finden, die noch nicht gematcht sind
+        const leftItems = Array.from(document.querySelectorAll('#left-col .item'));
+        const rightItems = Array.from(document.querySelectorAll('#right-col .item'));
+
+        leftItems.forEach(l => {
+            const r = rightItems.find(item => item.dataset.id === l.dataset.id);
+            if (!l.classList.contains('matched')) {
+                l.classList.add('matched');
+                r.classList.add('matched');
+                matchedPairs.push({ left: l, right: r });
+            }
+        });
+        drawLines();
+    }
+
+    init();
+</script>
+
+</body>
+</html>
