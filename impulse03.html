@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bild-Impuls Quiz: Russisch</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --success: #00b894;
+            --error: #d63031;
+            --bg: #f4f7f6;
+            --card-bg: #ffffff;
+        }
+
+        /* Keine Kursivschrift */
+        * {
+            font-style: normal !important;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header { text-align: center; margin-bottom: 20px; max-width: 600px; }
+
+        .question-container {
+            width: 100%;
+            max-width: 800px;
+            background: white;
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .question-text {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #2d3436;
+            margin-bottom: 25px;
+        }
+
+        /* Das Raster für die 3 Bild-Optionen */
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            width: 100%;
+        }
+
+        .option-card {
+            background: #f9f9f9;
+            border: 3px solid #eee;
+            border-radius: 15px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .option-card:hover { transform: translateY(-5px); border-color: var(--primary); }
+
+        .option-card.correct { border-color: var(--success); background: #e6fffb; }
+        .option-card.wrong { border-color: var(--error); background: #fff1f0; }
+
+        .image-icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+        }
+
+        .verb-label {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .controls {
+            margin-top: 30px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .btn-next { background: var(--primary); color: white; display: none; }
+        .btn-sol { background: #fab1a0; color: #2d3436; }
+
+        .progress { margin-top: 20px; color: #636e72; }
+
+        @media (max-width: 650px) {
+            .options-grid { grid-template-columns: 1fr; }
+            .image-icon { font-size: 3rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h2>Bild-Impuls Quiz</h2>
+    <p>Wähle das richtige Verb für die Situation aus.</p>
+</div>
+
+<div class="question-container" id="quiz-ui">
+    <div class="question-text" id="q-text">Lade...</div>
+    
+    <div class="options-grid" id="options-grid">
+        <!-- Karten werden per JS geladen -->
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-sol" id="sol-btn" onclick="showSolution()">Lösung anzeigen</button>
+        <button class="btn btn-next" id="next-btn" onclick="nextQuestion()">Nächste Frage →</button>
+    </div>
+
+    <div class="progress">Frage <span id="current-num">1</span> / 6</div>
+</div>
+
+<script>
+    const quizData = [
+        {
+            q: "Was machst du am Flughafen, wenn dein Vater ankommt?",
+            options: [
+                { verb: "встречать", icon: "✈️", correct: true },
+                { verb: "встречаться", icon: "☕", correct: false },
+                { verb: "учиться", icon: "🎓", correct: false }
+            ]
+        },
+        {
+            q: "Was machst du jeden Tag in der Universität?",
+            options: [
+                { verb: "учить", icon: "📖", correct: false },
+                { verb: "учиться", icon: "🏛️", correct: true },
+                { verb: "ссориться", icon: "⚡", correct: false }
+            ]
+        },
+        {
+            q: "Was machen Maria und Wasja, wenn sie ein Liebespaar sind?",
+            options: [
+                { verb: "встречать", icon: "👋", correct: false },
+                { verb: "договориться", icon: "📝", correct: false },
+                { verb: "встречаться", icon: "❤️", correct: true }
+            ]
+        },
+        {
+            q: "Du hast den Geburtstag deiner Freundin vergessen. Was tust du?",
+            options: [
+                { verb: "извиниться", icon: "🙏", correct: true },
+                { verb: "извинить", icon: "✔️", correct: false },
+                { verb: "подружиться", icon: "🤝", correct: false }
+            ]
+        },
+        {
+            q: "Ihr wollt zusammen ins Kino, wisst aber noch nicht wann. Was tut ihr?",
+            options: [
+                { verb: "согласиться", icon: "👍", correct: false },
+                { verb: "договориться", icon: "🕙", correct: true },
+                { verb: "дружить", icon: "😊", correct: false }
+            ]
+        },
+        {
+            q: "Du und dein Bruder habt eine schlechte Stimmung und sagt böse Worte.",
+            options: [
+                { verb: "поссориться", icon: "🌋", correct: true },
+                { verb: "мириться", icon: "🕊️", correct: false },
+                { verb: "встречать", icon: "车站", correct: false }
+            ]
+        }
+    ];
+
+    let currentIdx = 0;
+    let answered = false;
+
+    function renderQuestion() {
+        answered = false;
+        const data = quizData[currentIdx];
+        document.getElementById('q-text').innerText = data.q;
+        document.getElementById('current-num').innerText = currentIdx + 1;
+        document.getElementById('next-btn').style.display = "none";
+        document.getElementById('sol-btn').disabled = false;
+
+        const grid = document.getElementById('options-grid');
+        grid.innerHTML = "";
+
+        data.options.forEach((opt, idx) => {
+            const card = document.createElement('div');
+            card.className = "option-card";
+            card.innerHTML = `
+                <div class="image-icon">${opt.icon}</div>
+                <div class="verb-label">${opt.verb}</div>
+            `;
+            card.onclick = () => checkAnswer(card, opt.correct);
+            grid.appendChild(card);
+        });
+    }
+
+    function checkAnswer(card, isCorrect) {
+        if (answered) return;
+        answered = true;
+        document.getElementById('sol-btn').disabled = true;
+
+        if (isCorrect) {
+            card.classList.add('correct');
+        } else {
+            card.classList.add('wrong');
+            // Richtige Lösung markieren
+            highlightCorrect();
+        }
+        document.getElementById('next-btn').style.display = "inline-block";
+    }
+
+    function highlightCorrect() {
+        const cards = document.querySelectorAll('.option-card');
+        quizData[currentIdx].options.forEach((opt, idx) => {
+            if (opt.correct) cards[idx].classList.add('correct');
+        });
+    }
+
+    function showSolution() {
+        if (answered) return;
+        highlightCorrect();
+        answered = true;
+        document.getElementById('sol-btn').disabled = true;
+        document.getElementById('next-btn').style.display = "inline-block";
+    }
+
+    function nextQuestion() {
+        currentIdx++;
+        if (currentIdx < quizData.length) {
+            renderQuestion();
+        } else {
+            document.getElementById('quiz-ui').innerHTML = "<h3>Hervorragend!</h3><p>Du hast alle Situationen gemeistert.</p><button class='btn' style='background:var(--primary);color:white' onclick='location.reload()'>Neustart</button>";
+        }
+    }
+
+    renderQuestion();
+</script>
+
+</body>
+</html>
