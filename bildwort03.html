@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bild-Wort-Match: Russisch</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --bg: #f4f7f6;
+            --correct: #00b894;
+            --wrong: #d63031;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            user-select: none;
+        }
+
+        .header { text-align: center; margin-bottom: 20px; }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            width: 100%;
+            max-width: 900px;
+            margin-bottom: 30px;
+        }
+
+        .image-card {
+            background: white;
+            border: 3px solid #ddd;
+            border-radius: 12px;
+            padding: 8px;
+            text-align: center;
+            transition: 0.3s;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .image-card img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .image-card.correct { border-color: var(--correct); background: #e6fffb; pointer-events: none; }
+        .image-card.wrong { border-color: var(--wrong); background: #fff1f0; }
+        .image-card.selected-target { border-color: var(--primary); box-shadow: 0 0 10px rgba(108, 92, 231, 0.3); }
+
+        .drop-label {
+            background: #eee;
+            border-radius: 6px;
+            padding: 8px;
+            font-weight: bold;
+            font-size: 1rem;
+            color: #555;
+        }
+
+        .image-card.correct .drop-label { color: var(--correct); background: transparent; font-size: 1.2rem; }
+
+        .verb-pool {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            max-width: 800px;
+            margin-top: 20px;
+        }
+
+        .verb-tag {
+            background: var(--primary);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: 0.2s;
+        }
+
+        .verb-tag.selected { background: #4834d4; transform: scale(1.1); outline: 4px solid gold; }
+        .verb-tag.used { opacity: 0; pointer-events: none; transform: scale(0); }
+
+        .btn-reset {
+            margin-top: 40px;
+            padding: 12px 25px;
+            background: #636e72;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .image-grid { grid-template-columns: repeat(2, 1fr); }
+            .image-card img { height: 150px; }
+        }
+        @media (max-width: 450px) {
+            .image-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h2>Bild-Wort-Match</h2>
+    <p>Klicke ein Verb an und wähle dann das passende Bild dazu aus.</p>
+</div>
+
+<div class="image-grid" id="image-grid"></div>
+
+<div class="verb-pool" id="verb-pool"></div>
+
+<button class="btn-reset" onclick="location.reload()">Mischen & Neustarten</button>
+
+<script>
+    // Diese Liste nutzt jetzt deine lokalen Dateien
+    const gameData = [
+        { verb: "учиться", img: "учиться.jpg" },
+        { verb: "дружить", img: "дружить.jpg" },
+        { verb: "ссориться", img: "ссориться.jpg" },
+        { verb: "извиняться", img: "извиняться.jpg" },
+        { verb: "встречаться", img: "встречаться.jpg" },
+        { verb: "договориться", img: "договориться.jpg" }
+    ];
+
+    let selectedVerbEl = null;
+
+    function initGame() {
+        const grid = document.getElementById('image-grid');
+        const pool = document.getElementById('verb-pool');
+
+        // Mischen der Bilder und Wörter
+        const shuffledImages = [...gameData].sort(() => Math.random() - 0.5);
+        const shuffledVerbs = [...gameData].sort(() => Math.random() - 0.5);
+
+        shuffledImages.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'image-card';
+            card.setAttribute('data-answer', item.verb);
+            card.onclick = () => handleCardClick(card);
+            card.innerHTML = `
+                <img src="${item.img}" alt="Situation">
+                <div class="drop-label">?</div>
+            `;
+            grid.appendChild(card);
+        });
+
+        shuffledVerbs.forEach(item => {
+            const tag = document.createElement('div');
+            tag.className = 'verb-tag';
+            tag.innerText = item.verb;
+            tag.onclick = (e) => {
+                e.stopPropagation();
+                selectVerb(tag);
+            };
+            pool.appendChild(tag);
+        });
+    }
+
+    function selectVerb(el) {
+        if (selectedVerbEl) selectedVerbEl.classList.remove('selected');
+        selectedVerbEl = el;
+        el.classList.add('selected');
+    }
+
+    function handleCardClick(card) {
+        if (!selectedVerbEl) return;
+
+        const verbText = selectedVerbEl.innerText;
+        const correctAnswer = card.getAttribute('data-answer');
+
+        if (verbText === correctAnswer) {
+            card.classList.add('correct');
+            card.classList.remove('wrong');
+            card.querySelector('.drop-label').innerText = verbText;
+            selectedVerbEl.classList.add('used');
+            selectedVerbEl = null;
+            checkWin();
+        } else {
+            card.classList.add('wrong');
+            setTimeout(() => card.classList.remove('wrong'), 800);
+        }
+    }
+
+    function checkWin() {
+        const corrects = document.querySelectorAll('.image-card.correct');
+        if (corrects.length === gameData.length) {
+            setTimeout(() => alert("Klasse! Du hast alle Bilder richtig zugeordnet."), 500);
+        }
+    }
+
+    initGame();
+</script>
+
+</body>
+</html>
