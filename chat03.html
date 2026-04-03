@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Russisch-Chat: -СЯ Training</title>
+    <style>
+        :root {
+            --bot-bubble: #ffffff;
+            --user-bubble: #dcf8c6;
+            --bg-color: #e5ddd5;
+            --primary: #075e54;
+            --text-color: #303030;
+        }
+
+        /* Keine Kursivschrift im gesamten Projekt */
+        * {
+            font-style: normal !important;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* Chat Container */
+        .chat-container {
+            width: 100%;
+            max-width: 500px;
+            background-color: var(--bg-color);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .chat-header {
+            background-color: var(--primary);
+            color: white;
+            padding: 15px;
+            font-weight: bold;
+            text-align: center;
+            font-size: 1.2rem;
+        }
+
+        /* Nachrichten-Verlauf */
+        .chat-window {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .bubble {
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 15px;
+            font-size: 1rem;
+            line-height: 1.4;
+            position: relative;
+        }
+
+        .bot {
+            align-self: flex-start;
+            background-color: var(--bot-bubble);
+            color: var(--text-color);
+            border-bottom-left-radius: 2px;
+        }
+
+        .user {
+            align-self: flex-end;
+            background-color: var(--user-bubble);
+            color: var(--text-color);
+            border-bottom-right-radius: 2px;
+        }
+
+        /* Antwort-Optionen */
+        .options-area {
+            background-color: #f0f0f0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border-top: 1px solid #ddd;
+        }
+
+        .option-btn {
+            background-color: white;
+            border: 1px solid #ccc;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+            font-size: 0.95rem;
+            transition: background 0.2s;
+        }
+
+        .option-btn:hover {
+            background-color: #f9f9f9;
+        }
+
+        .option-btn:active {
+            background-color: #ececec;
+        }
+
+        /* Erfolg / Fehler Feedback */
+        .feedback-text {
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+            color: #d63031;
+            font-weight: bold;
+            display: none;
+        }
+
+        #finish-screen {
+            display: none;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        button.restart {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="chat-container" id="chat-ui">
+    <div class="chat-header">Ира (Channel)</div>
+    
+    <div class="chat-window" id="chat-window">
+        <!-- Nachrichten erscheinen hier -->
+    </div>
+
+    <div class="options-area" id="options-area">
+        <div class="feedback-text" id="feedback-text">Das war leider falsch. Versuch es nochmal!</div>
+        <div id="buttons-container" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Buttons erscheinen hier -->
+        </div>
+    </div>
+</div>
+
+<div id="finish-screen">
+    <h2>Super!</h2>
+    <p>Du hast die Chat-Simulation erfolgreich abgeschlossen.</p>
+    <button class="restart" onclick="location.reload()">Neustart</button>
+</div>
+
+<script>
+    const chatData = [
+        {
+            bot: "Привет! Что ты сейчас делаешь?",
+            options: [
+                { text: "Я учусь русский язык.", correct: false, msg: "Falsch. Nach 'учусь' kann kein direktes Objekt (Was?) stehen." },
+                { text: "Я учу русский язык.", correct: true },
+                { text: "Я учусь в русском языке.", correct: false, msg: "Falsch. Man sagt 'учусь чему' (Dativ) oder 'учу что'." }
+            ]
+        },
+        {
+            bot: "Здорово! А где ты учишься?",
+            options: [
+                { text: "Я учу в университете.", correct: false, msg: "Falsch. Wenn du den Ort (Wo?) nennst, brauchst du das -СЯ." },
+                { text: "Я учусь в университете.", correct: true },
+                { text: "Я учу университете.", correct: false, msg: "Falsch. Hier fehlt sowohl das -СЯ als auch die Präposition." }
+            ]
+        },
+        {
+            bot: "Понятно. Давай завтра встретимся в 6?",
+            options: [
+                { text: "Да, встретим в 6.", correct: false, msg: "Falsch. 'встретить' ohne -СЯ bedeutet jemanden abholen oder zufällig treffen." },
+                { text: "Да, давай встретимся.", correct: true },
+                { text: "Да, встретимся друга.", correct: false, msg: "Falsch. 'встретиться' wird mit 'с кем' (Instrumental) verwendet." }
+            ]
+        },
+        {
+            bot: "Отлично. О чём нам нужно поговорить?",
+            options: [
+                { text: "Мы согласились о проекте.", correct: false, msg: "Falsch. Um Details zu planen, nutzt man 'договориться'." },
+                { text: "Нам нужно договориться о проекте.", correct: true },
+                { text: "Нам нужно согласиться проект.", correct: false, msg: "Falsch. 'согласиться' bedeutet nur 'Ja' sagen." }
+            ]
+        },
+        {
+            bot: "Хорошо. А как дела у твоей подруги Маши?",
+            options: [
+                { text: "Мы с ней дружимся уже давно.", correct: false, msg: "Falsch. 'дружить' hat im unvollendeten Aspekt kein -СЯ." },
+                { text: "Мы с ней дружим уже давно.", correct: true },
+                { text: "Мы подружим уже давно.", correct: false, msg: "Falsch. Das ist die falsche Zeitform und falscher Aspekt." }
+            ]
+        },
+        {
+            bot: "Ой, я вчера случайно рассказала её секрет... Что мне делать?",
+            options: [
+                { text: "Тебе нужно извинить её.", correct: false, msg: "Falsch. Das würde bedeuten, dass DU ihr verzeihst." },
+                { text: "Теbe нужно извиниться перед ней.", correct: true },
+                { text: "Тебе нужно извиниться её.", correct: false, msg: "Falsch. Man entschuldigt sich 'перед кем' (vor jemandem)." }
+            ]
+        }
+    ];
+
+    let currentStep = 0;
+    const chatWindow = document.getElementById('chat-window');
+    const buttonsContainer = document.getElementById('buttons-container');
+    const feedbackText = document.getElementById('feedback-text');
+
+    function initChat() {
+        showBotMessage(chatData[currentIdx].bot);
+        showOptions();
+    }
+
+    function showBotMessage(text) {
+        const bubble = document.createElement('div');
+        bubble.className = "bubble bot";
+        bubble.innerText = text;
+        chatWindow.appendChild(bubble);
+        scrollDown();
+    }
+
+    function showUserMessage(text) {
+        const bubble = document.createElement('div');
+        bubble.className = "bubble user";
+        bubble.innerText = text;
+        chatWindow.appendChild(bubble);
+        scrollDown();
+    }
+
+    function showOptions() {
+        buttonsContainer.innerHTML = "";
+        const options = chatData[currentStep].options;
+        
+        options.forEach(opt => {
+            const btn = document.createElement('div');
+            btn.className = "option-btn";
+            btn.innerText = opt.text;
+            btn.onclick = () => handleChoice(opt);
+            buttonsContainer.appendChild(btn);
+        });
+    }
+
+    function handleChoice(opt) {
+        if (opt.correct) {
+            feedbackText.style.display = "none";
+            showUserMessage(opt.text);
+            currentStep++;
+            
+            if (currentStep < chatData.length) {
+                setTimeout(() => {
+                    showBotMessage(chatData[currentStep].bot);
+                    showOptions();
+                }, 1000);
+            } else {
+                setTimeout(showFinishScreen, 1000);
+            }
+        } else {
+            feedbackText.innerText = opt.msg;
+            feedbackText.style.display = "block";
+        }
+    }
+
+    function scrollDown() {
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    function showFinishScreen() {
+        document.getElementById('chat-ui').style.display = "none";
+        document.getElementById('finish-screen').style.display = "block";
+    }
+
+    // Start
+    showBotMessage(chatData[0].bot);
+    showOptions();
+
+</script>
+
+</body>
+</html>
