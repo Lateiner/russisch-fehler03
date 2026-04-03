@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed-Quiz: Heißer Stuhl</title>
+    <style>
+        :root {
+            --primary: #e67e22;
+            --secondary: #d35400;
+            --success: #27ae60;
+            --error: #c0392b;
+            --bg: #2c3e50;
+            --text: #ffffff;
+        }
+
+        /* Keine Kursivschrift */
+        * {
+            font-style: normal !important;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .game-header {
+            position: absolute;
+            top: 20px;
+            text-align: center;
+            width: 100%;
+        }
+
+        /* Der Timer-Balken */
+        .timer-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 10px;
+            background: #444;
+        }
+
+        .timer-bar {
+            height: 100%;
+            width: 100%;
+            background: var(--primary);
+            transition: width linear;
+        }
+
+        .score-display {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        /* Die Quiz-Karte */
+        .quiz-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px 20px;
+            border-radius: 20px;
+            text-align: center;
+            width: 100%;
+            max-width: 500px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .sentence {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .translation {
+            font-size: 1rem;
+            color: #bdc3c7;
+            margin-bottom: 20px;
+        }
+
+        /* Buttons */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .btn-choice {
+            padding: 20px;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+            transition: transform 0.1s, background 0.3s;
+        }
+
+        .btn-yes { background-color: var(--success); }
+        .btn-no { background-color: var(--secondary); }
+
+        .btn-choice:active { transform: scale(0.95); }
+
+        /* Start- & End-Screen */
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .btn-start {
+            padding: 15px 40px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 480px) {
+            .sentence { font-size: 1.4rem; }
+            .btn-choice { padding: 25px 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="timer-container">
+    <div class="timer-bar" id="timer-bar"></div>
+</div>
+
+<div class="game-header">
+    <div class="score-display">Punkte: <span id="score">0</span></div>
+</div>
+
+<div class="quiz-card">
+    <div class="sentence" id="sentence">Wird geladen...</div>
+    <div class="translation" id="hint">---</div>
+</div>
+
+<div class="controls">
+    <button class="btn-choice btn-yes" onclick="checkAnswer(true)">-СЯ</button>
+    <button class="btn-choice btn-no" onclick="checkAnswer(false)">OHNE -СЯ</button>
+</div>
+
+<!-- Startbildschirm -->
+<div id="start-screen" class="overlay">
+    <h1>Heißer Stuhl: -СЯ Quiz</h1>
+    <p>Entscheide schnell! Du hast 5 Sekunden pro Satz.</p>
+    <p>Das Spiel endet bei einem Fehler oder Zeitablauf.</p>
+    <button class="btn-start" onclick="startGame()">JETZT STARTEN</button>
+</div>
+
+<!-- Spielende -->
+<div id="end-screen" class="overlay" style="display:none">
+    <h1>Spiel vorbei!</h1>
+    <p style="font-size: 2rem">Deine Punkte: <span id="final-score">0</span></p>
+    <p id="feedback-msg"></p>
+    <button class="btn-start" onclick="location.reload()">NOCHMAL VERSUCHEN</button>
+</div>
+
+<script>
+    const quizData = [
+        { s: "Я учу... русский язык.", res: false, h: "Ich lerne (Was?)" },
+        { s: "Я учу... в школе.", res: true, h: "Ich lerne (Wo?)" },
+        { s: "Мы договорили... встретиться.", res: true, h: "Wir haben vereinbart..." },
+        { s: "Мама встрети... меня в 6.", res: false, h: "Mama holt mich ab." },
+        { s: "Мы встрети... у метро.", res: true, h: "Wir treffen uns (geplant)." },
+        { s: "Я вчера подружил... с ним.", res: true, h: "Ich habe mich angefreundet." },
+        { s: "Мы дружи... уже год.", res: false, h: "Wir sind befreundet." },
+        { s: "Они поссорили... утром.", res: true, h: "Sie haben sich gestritten." },
+        { s: "Я согла... с тобой.", res: false, h: "Ich stimme zu." },
+        { s: "Нужно извини... перед ней.", res: true, h: "Man muss sich entschuldigen." },
+        { s: "Он извини... меня.", res: false, h: "Er verzeiht mir." },
+        { s: "Я учу... русскому языку.", res: true, h: "Ich lerne (Was? + Dativ)" },
+        { s: "Она учи... детей.", res: false, h: "Sie lehrt Kinder." },
+        { s: "Маша и Вася встречают...", res: true, h: "M. und V. sind ein Paar." },
+        { s: "Я встрети... его случайно.", res: false, h: "Ich traf ihn zufällig." },
+        { s: "Мы согласи... пойти в кино.", res: true, h: "Wir haben zugestimmt..." },
+        { s: "Где вы учите...?", res: true, h: "Wo studiert ihr?" },
+        { s: "Я учу... новые слова.", res: false, h: "Ich lerne neue Wörter." },
+        { s: "Мы договорили... о цене.", res: true, h: "Wir haben uns geeinigt." },
+        { s: "Извини... меня, пожалуйста.", res: false, h: "Verzeih mir bitte." }
+    ];
+
+    let currentScore = 0;
+    let timer;
+    let timeLeft;
+    const TIME_LIMIT = 5000; // 5 Sekunden pro Frage
+
+    function startGame() {
+        document.getElementById('start-screen').style.display = 'none';
+        nextQuestion();
+    }
+
+    function nextQuestion() {
+        const data = quizData[Math.floor(Math.random() * quizData.length)];
+        document.getElementById('sentence').innerText = data.s;
+        document.getElementById('hint').innerText = data.h;
+        document.getElementById('sentence').dataset.res = data.res;
+        
+        startTimer();
+    }
+
+    function startTimer() {
+        clearInterval(timer);
+        const bar = document.getElementById('timer-bar');
+        bar.style.transition = 'none';
+        bar.style.width = '100%';
+        
+        setTimeout(() => {
+            bar.style.transition = `width ${TIME_LIMIT}ms linear`;
+            bar.style.width = '0%';
+        }, 10);
+
+        timeLeft = setTimeout(() => {
+            gameOver("Zeit abgelaufen!");
+        }, TIME_LIMIT);
+    }
+
+    function checkAnswer(choice) {
+        clearTimeout(timeLeft);
+        const correctAnswer = document.getElementById('sentence').dataset.res === "true";
+
+        if (choice === correctAnswer) {
+            currentScore += 10;
+            document.getElementById('score').innerText = currentScore;
+            
+            // Kurzes grünes Aufleuchten
+            document.body.style.backgroundColor = "#27ae60";
+            setTimeout(() => {
+                document.body.style.backgroundColor = "#2c3e50";
+                nextQuestion();
+            }, 200);
+        } else {
+            gameOver("Falsche Antwort!");
+        }
+    }
+
+    function gameOver(reason) {
+        clearInterval(timer);
+        clearTimeout(timeLeft);
+        document.getElementById('end-screen').style.display = 'flex';
+        document.getElementById('final-score').innerText = currentScore;
+        document.getElementById('feedback-msg').innerText = reason;
+        document.body.style.backgroundColor = "#c0392b";
+    }
+</script>
+
+</body>
+</html>
