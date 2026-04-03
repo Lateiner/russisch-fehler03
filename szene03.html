@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Szenario-Sortierung: 6 Situationen</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --success: #00b894;
+            --error: #d63031;
+            --bg: #f4f7f6;
+            --card-bg: #ffffff;
+        }
+
+        /* Keine Kursivschrift im gesamten Projekt */
+        * {
+            font-style: normal !important;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .header { text-align: center; max-width: 700px; margin-bottom: 30px; }
+
+        .scenarios-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+            max-width: 900px;
+            margin-bottom: 100px; /* Platz für die feststehenden Buttons unten */
+        }
+
+        .scenario-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 2px solid transparent;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            transition: transform 0.2s;
+        }
+
+        .scenario-text {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: #2d3436;
+            margin-bottom: 15px;
+        }
+
+        /* Drop-Zone */
+        .drop-zone {
+            height: 45px;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #999;
+            background: #fafafa;
+            transition: all 0.3s;
+        }
+
+        .drop-zone.hover {
+            border-color: var(--primary);
+            background: #f0edff;
+            color: var(--primary);
+        }
+
+        .scenario-card.correct { border-color: var(--success); background: #f0fff4; }
+        .scenario-card.wrong { border-color: var(--error); background: #fff5f5; }
+
+        .result-icon {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-weight: bold;
+            display: none;
+        }
+        .correct .result-icon { display: block; color: var(--success); }
+        .wrong .result-icon { display: block; color: var(--error); }
+
+        /* Feststehende Buttons am unteren Rand */
+        .controls-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .draggable {
+            background: var(--primary);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: grab;
+            user-select: none;
+            box-shadow: 0 4px 10px rgba(108, 92, 231, 0.3);
+            touch-action: none;
+        }
+
+        .draggable.selected {
+            outline: 4px solid #fdcb6e;
+            transform: scale(1.05);
+        }
+
+        .btn-restart {
+            background: #636e72;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+
+        /* Mobile Layout */
+        @media (max-width: 768px) {
+            .scenarios-grid { grid-template-columns: 1fr; }
+            .header { margin-bottom: 15px; }
+            .controls-footer { padding: 15px; gap: 10px; }
+            .draggable { padding: 10px 20px; font-size: 0.9rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h2>Szenario-Sortierung</h2>
+    <p>Ordne die Begriffe <b>ссора</b> (privater Streit) oder <b>конфликт</b> (ernster Konflikt) den 6 Szenarien zu.</p>
+    <button class="btn-restart" onclick="location.reload()">Neustart / Mischen</button>
+</div>
+
+<div class="scenarios-grid" id="grid">
+    <!-- Szenarien werden per JS geladen -->
+</div>
+
+<div class="controls-footer">
+    <div class="draggable" id="word-ssora" draggable="true" ondragstart="drag(event)" onclick="selectWord(this)">ссора</div>
+    <div class="draggable" id="word-konflikt" draggable="true" ondragstart="drag(event)" onclick="selectWord(this)">конфликт</div>
+</div>
+
+<script>
+    const scenarios = [
+        { text: "Ein Ehepaar ist morgens schlecht gelaunt und wechselt ein paar unangenehme Sätze. Danach sprechen sie kurz nicht miteinander.", correct: "ссора" },
+        { text: "Ein Kollege klaut deine Projektidee und präsentiert sie als seine eigene. Es kommt zu Drohungen, und eine Kündigung droht.", correct: "конфликт" },
+        { text: "Zwei Freunde haben ein Missverständnis über die Uhrzeit ihres Treffens. Sie sind kurz sauer, vertragen sich aber schnell.", correct: "ссора" },
+        { text: "Zwei Firmen verklagen sich gegenseitig wegen einer schweren Vertragsverletzung. Der Fall geht vor Gericht.", correct: "конфликт" },
+        { text: "Eine Tochter räumt ihr Zimmer nicht auf, woraufhin die Mutter laut wird. Nach einer Stunde ist alles wieder vergessen.", correct: "ссора" },
+        { text: "In einer Abteilung herrscht seit Monaten eine feindselige Stimmung zwischen zwei Teams, die die gesamte Arbeit blockiert.", correct: "конфликт" }
+    ];
+
+    let selectedElement = null;
+
+    function initGame() {
+        const grid = document.getElementById('grid');
+        // Szenarien mischen
+        const shuffled = [...scenarios].sort(() => Math.random() - 0.5);
+        
+        shuffled.forEach((s, idx) => {
+            const card = document.createElement('div');
+            card.className = 'scenario-card';
+            card.setAttribute('data-correct', s.correct);
+            card.innerHTML = `
+                <div class="result-icon">✓</div>
+                <div class="scenario-text">${s.text}</div>
+                <div class="drop-zone" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="drop(event, this)" onclick="clickDrop(this)">Hierher ziehen</div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    // Klick-Logik für Mobile
+    function selectWord(el) {
+        if (selectedElement) selectedElement.classList.remove('selected');
+        selectedElement = el;
+        el.classList.add('selected');
+    }
+
+    function clickDrop(zone) {
+        if (selectedElement) {
+            checkResult(zone, selectedElement.innerText);
+            selectedElement.classList.remove('selected');
+            selectedElement = null;
+        }
+    }
+
+    // Drag & Drop Logik
+    function drag(ev) {
+        ev.dataTransfer.setData("text", ev.target.innerText);
+    }
+
+    function allowDrop(ev) {
+        ev.preventDefault();
+        ev.target.classList.add('hover');
+    }
+
+    function leaveDrop(ev) {
+        ev.target.classList.remove('hover');
+    }
+
+    function drop(ev, zone) {
+        ev.preventDefault();
+        const data = ev.dataTransfer.getData("text");
+        checkResult(zone, data);
+    }
+
+    function checkResult(zone, word) {
+        const card = zone.parentElement;
+        const correct = card.getAttribute('data-correct');
+        const icon = card.querySelector('.result-icon');
+
+        zone.innerText = word;
+        zone.classList.remove('hover');
+        zone.style.color = "white";
+        zone.style.backgroundColor = "var(--primary)";
+        zone.style.borderStyle = "solid";
+
+        if (word === correct) {
+            card.classList.add('correct');
+            card.classList.remove('wrong');
+            icon.innerText = "✓";
+        } else {
+            card.classList.add('wrong');
+            card.classList.remove('correct');
+            icon.innerText = "✗";
+        }
+    }
+
+    initGame();
+</script>
+
+</body>
+</html>
