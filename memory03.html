@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aspekt-Memory: Russisch</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --bg: #f0f2f5;
+            --card-back: #2d3436;
+            --card-front: #ffffff;
+            /* Farben für die Lösungspaare */
+            --color0: #ffadad; --color1: #ffd6a5; --color2: #fdffb6; --color3: #caffbf;
+            --color4: #9bf6ff; --color5: #a0c4ff; --color6: #bdb2ff; --color7: #ffc6ff;
+        }
+
+        /* Keine Kursivschrift */
+        * { font-style: normal !important; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        .header { text-align: center; margin-bottom: 10px; }
+
+        .game-info {
+            margin-bottom: 15px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .memory-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            width: 100%;
+            max-width: 500px;
+            perspective: 1000px;
+        }
+
+        .card {
+            aspect-ratio: 1 / 1;
+            position: relative;
+            cursor: pointer;
+            transform-style: preserve-3d;
+            transition: transform 0.5s, opacity 0.5s;
+        }
+
+        .card.flipped { transform: rotateY(180deg); }
+
+        /* Karten verschwinden lassen */
+        .card.matched { 
+            opacity: 0; 
+            pointer-events: none; 
+            cursor: default;
+        }
+
+        /* Im Lösungsmodus wieder sichtbar machen */
+        .card.reveal-solution {
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            text-align: center;
+            padding: 5px;
+            box-sizing: border-box;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .card-back { background-color: var(--card-back); color: white; font-size: 1.5rem; }
+
+        .card-front {
+            background-color: var(--card-front);
+            color: #000;
+            transform: rotateY(180deg);
+            border: 2px solid var(--primary);
+        }
+
+        .controls {
+            margin-top: 25px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn-restart { background: var(--primary); color: white; }
+        .btn-solution { background: #fab1a0; color: #2d3436; }
+        button:active { transform: scale(0.98); }
+
+        #win-screen {
+            display: none;
+            text-align: center;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 100;
+        }
+
+        @media (max-width: 450px) {
+            .card-face { font-size: 0.65rem; }
+            .memory-grid { gap: 8px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h2>Aspekt-Memory</h2>
+    <p>Gefundene Paare verschwinden vom Feld.</p>
+</div>
+
+<div class="game-info">
+    Gefundene Paare: <span id="matches">0</span> / 8
+</div>
+
+<div class="memory-grid" id="grid"></div>
+
+<div class="controls">
+    <button class="btn-restart" onclick="restartGame()">Neustart</button>
+    <button class="btn-solution" id="sol-btn" onclick="showSolution()">Lösung anzeigen</button>
+</div>
+
+<div id="win-screen">
+    <h2>Klasse!</h2>
+    <p>Alle Aspekt-Paare wurden gefunden.</p>
+    <button class="btn-restart" onclick="restartGame()">Nochmal spielen</button>
+</div>
+
+<script>
+    const pairs = [
+        { uv: "встречать", v: "встретить" },
+        { uv: "встречаться", v: "встретиться" },
+        { uv: "дружить", v: "подружиться" },
+        { uv: "ссориться", v: "поссориться" },
+        { uv: "договариваться", v: "договориться" },
+        { uv: "соглашаться", v: "согласиться" },
+        { uv: "извиняться", v: "извиниться" },
+        { uv: "учить", v: "выучить" }
+    ];
+
+    let cardsData = [];
+    let flippedCards = [];
+    let matchedCount = 0;
+    let canFlip = true;
+    let solutionShown = false;
+
+    function initGame() {
+        const grid = document.getElementById('grid');
+        grid.innerHTML = "";
+        cardsData = [];
+        flippedCards = [];
+        matchedCount = 0;
+        canFlip = true;
+        solutionShown = false;
+        document.getElementById('matches').innerText = "0";
+        document.getElementById('win-screen').style.display = 'none';
+        document.getElementById('sol-btn').disabled = false;
+
+        pairs.forEach((p, index) => {
+            cardsData.push({ text: p.uv, pairId: index });
+            cardsData.push({ text: p.v, pairId: index });
+        });
+
+        cardsData.sort(() => Math.random() - 0.5);
+
+        cardsData.forEach((data) => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.dataset.pairId = data.pairId;
+            
+            card.innerHTML = `
+                <div class="card-face card-back">?</div>
+                <div class="card-front card-face">${data.text}</div>
+            `;
+            
+            card.onclick = () => flipCard(card);
+            grid.appendChild(card);
+        });
+    }
+
+    function flipCard(card) {
+        if (!canFlip || solutionShown || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+        card.classList.add('flipped');
+        flippedCards.push(card);
+
+        if (flippedCards.length === 2) {
+            canFlip = false;
+            checkMatch();
+        }
+    }
+
+    function checkMatch() {
+        const [card1, card2] = flippedCards;
+        const isMatch = card1.dataset.pairId === card2.dataset.pairId;
+
+        if (isMatch) {
+            setTimeout(() => {
+                card1.classList.add('matched');
+                card2.classList.add('matched');
+                matchedCount++;
+                document.getElementById('matches').innerText = matchedCount;
+                flippedCards = [];
+                canFlip = true;
+                if (matchedCount === pairs.length) showWinScreen();
+            }, 600);
+        } else {
+            setTimeout(() => {
+                card1.classList.remove('flipped');
+                card2.classList.remove('flipped');
+                flippedCards = [];
+                canFlip = true;
+            }, 1000);
+        }
+    }
+
+    function showSolution() {
+        solutionShown = true;
+        canFlip = false;
+        document.getElementById('sol-btn').disabled = true;
+        
+        const allCards = document.querySelectorAll('.card');
+        allCards.forEach(card => {
+            card.classList.add('flipped');
+            card.classList.add('reveal-solution'); // Macht auch verschwundene Karten wieder sichtbar
+            const pairId = card.dataset.pairId;
+            const front = card.querySelector('.card-front');
+            front.style.backgroundColor = `var(--color${pairId})`;
+        });
+    }
+
+    function restartGame() {
+        initGame();
+    }
+
+    function showWinScreen() {
+        document.getElementById('win-screen').style.display = 'block';
+    }
+
+    initGame();
+</script>
+
+</body>
+</html>
