@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logik-Quiz: Das unpassende Verb</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --success: #00b894;
+            --error: #d63031;
+            --bg: #f9f9fb;
+            --card-bg: #ffffff;
+        }
+
+        /* Keine Kursivschrift */
+        * {
+            font-style: normal !important;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header { text-align: center; margin-bottom: 30px; max-width: 600px; }
+
+        .game-container {
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .instruction { font-weight: bold; color: #636e72; margin-bottom: 25px; }
+
+        /* Das Gitter für die 4 Verben */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .verb-btn {
+            background: #f1f2f6;
+            border: 2px solid #dfe6e9;
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #2d3436;
+        }
+
+        .verb-btn:hover { border-color: var(--primary); background: #f0edff; }
+        .verb-btn.correct { background-color: var(--success); color: white; border-color: var(--success); }
+        .verb-btn.wrong { background-color: var(--error); color: white; border-color: var(--error); }
+
+        .explanation-box {
+            background: #fdf9ea;
+            border: 1px solid #f1c40f;
+            padding: 15px;
+            border-radius: 10px;
+            min-height: 60px;
+            display: none;
+            margin-top: 20px;
+            text-align: left;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        .controls {
+            margin-top: 25px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .btn-next { background: var(--primary); color: white; display: none; }
+        .btn-sol { background: #fab1a0; color: #2d3436; }
+
+        .progress { margin-top: 20px; color: #b2bec3; }
+
+        @media (max-width: 480px) {
+            .options-grid { grid-template-columns: 1fr; }
+            .verb-btn { padding: 15px; font-size: 1.1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h2>Logik-Reihe: Odd One Out</h2>
+    <p>Welches Verb passt grammatikalisch oder logisch <b>nicht</b> in die Reihe?</p>
+</div>
+
+<div class="game-container" id="quiz-ui">
+    <div class="instruction">Wähle das unpassende Verb:</div>
+
+    <div class="options-grid" id="options-grid">
+        <!-- 4 Verben werden hier geladen -->
+    </div>
+
+    <div class="explanation-box" id="explanation"></div>
+
+    <div class="controls">
+        <button class="btn btn-sol" id="sol-btn" onclick="showSolution()">Lösung anzeigen</button>
+        <button class="btn btn-next" id="next-btn" onclick="nextSet()">Nächste Reihe →</button>
+    </div>
+
+    <div class="progress">Reihe <span id="current-num">1</span> / 8</div>
+</div>
+
+<script>
+    const quizData = [
+        {
+            verbs: ["учиться", "ссориться", "мириться", "дружить"],
+            correctIdx: 3,
+            why: "ДРУЖИТЬ hat kein -СЯ im unvollendeten Aspekt, die anderen drei hingegen schon."
+        },
+        {
+            verbs: ["встретить", "встречать", "извинить", "встретиться"],
+            correctIdx: 3,
+            why: "ВСТРЕТИТЬСЯ ist das einzige Verb mit -СЯ in dieser Reihe."
+        },
+        {
+            verbs: ["договориться", "согласиться", "встретиться", "встретить"],
+            correctIdx: 3,
+            why: "ВСТРЕТИТЬ bedeutet eine zufällige Begegnung. Die anderen drei beschreiben geplante Handlungen oder Einigungen."
+        },
+        {
+            verbs: ["учить", "встречать", "извинить", "учиться"],
+            correctIdx: 3,
+            why: "УЧИТЬСЯ ist ein reflexives Verb (intransitiv). Die anderen drei sind transitiv und benötigen ein direktes Objekt (Was?)."
+        },
+        {
+            verbs: ["поссориться", "подружиться", "встретиться", "дружить"],
+            correctIdx: 3,
+            why: "ДРУЖИТЬ ist unvollendet (Aspekt). Die anderen drei sind vollendete Verben (Resultat)."
+        },
+        {
+            verbs: ["встретиться", "договориться", "подружиться", "учить"],
+            correctIdx: 3,
+            why: "УЧИТЬ wird mit 'что' (Akkusativ) verwendet. Die anderen drei benötigen 'с кем' (Instrumental)."
+        },
+        {
+            verbs: ["конфликт", "ссора", "драка", "учиться"],
+            correctIdx: 3,
+            why: "УЧИТЬСЯ beschreibt Bildung/Lernen. Die anderen drei Begriffe beschreiben verschiedene Arten von Streit."
+        },
+        {
+            verbs: ["согласиться", "договориться", "поссориться", "встречать"],
+            correctIdx: 3,
+            why: "ВСТРЕЧАТЬ hat kein -СЯ, die anderen drei Verben sind reflexiv."
+        }
+    ];
+
+    let currentIdx = 0;
+    let answered = false;
+
+    function renderSet() {
+        answered = false;
+        const data = quizData[currentIdx];
+        const grid = document.getElementById('options-grid');
+        const expl = document.getElementById('explanation');
+        
+        grid.innerHTML = "";
+        expl.style.display = "none";
+        document.getElementById('next-btn').style.display = "none";
+        document.getElementById('sol-btn').disabled = false;
+        document.getElementById('current-num').innerText = currentIdx + 1;
+
+        data.verbs.forEach((verb, idx) => {
+            const btn = document.createElement('div');
+            btn.className = "verb-btn";
+            btn.innerText = verb;
+            btn.onclick = () => checkChoice(btn, idx);
+            grid.appendChild(btn);
+        });
+    }
+
+    function checkChoice(btn, idx) {
+        if (answered) return;
+        answered = true;
+        const data = quizData[currentIdx];
+
+        if (idx === data.correctIdx) {
+            btn.classList.add('correct');
+        } else {
+            btn.classList.add('wrong');
+            // Zeige das richtige Element an
+            document.querySelectorAll('.verb-btn')[data.correctIdx].classList.add('correct');
+        }
+
+        showExplanation();
+    }
+
+    function showExplanation() {
+        const expl = document.getElementById('explanation');
+        expl.innerText = quizData[currentIdx].why;
+        expl.style.display = "block";
+        document.getElementById('next-btn').style.display = "inline-block";
+        document.getElementById('sol-btn').disabled = true;
+    }
+
+    function showSolution() {
+        if (answered) return;
+        answered = true;
+        document.querySelectorAll('.verb-btn')[quizData[currentIdx].correctIdx].classList.add('correct');
+        showExplanation();
+    }
+
+    function nextSet() {
+        currentIdx++;
+        if (currentIdx < quizData.length) {
+            renderSet();
+        } else {
+            document.getElementById('quiz-ui').innerHTML = "<h3>Hervorragend!</h3><p>Du hast alle Logik-Reihen gelöst.</p><button class='btn btn-next' style='display:inline-block' onclick='location.reload()'>Neustart</button>";
+        }
+    }
+
+    renderSet();
+</script>
+
+</body>
+</html>
